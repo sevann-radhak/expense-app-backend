@@ -26,3 +26,7 @@ alwaysApply: true
 ## Product docs
 
 Authoritative phase checklist and environment model: **`expense-app`** repo → `docs/05-implementation-phase-5-plan.md`, `docs/05-azure-hosting-strategy.md`, `docs/05-sync-spec.md`.
+
+## Architecture detail
+
+Layering, boundaries, performance/data rules, integrations, environments, and comment discipline: **`expense-backend-architecture.md`** (applies when working on `*.cs` / project files; `globs` in that file).
