@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Local API secrets (see appsettings.local.example.json)
+ExpenseTracker.Api/appsettings.local.json
+
 # User-specific files
 *.rsuser
 *.suo

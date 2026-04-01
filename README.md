@@ -16,6 +16,10 @@ dotnet build ExpenseTracker.sln -c Release
 dotnet run --project ExpenseTracker.Api
 ```
 
+### Configuration (secrets)
+
+Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`appsettings.local.json`** (gitignored — copy from `ExpenseTracker.Api/appsettings.local.example.json`), ASP.NET Core **user secrets** (Development), then **environment variables** (override keys use double underscores, e.g. `ConnectionStrings__DefaultConnection`). See `ConfigurationHints` in `appsettings.json` for common variable names.
+
 - **Swagger UI:** open **http://localhost:5057/swagger** (HTTP profile; see `Properties/launchSettings.json` for ports).
 - **OpenAPI JSON:** `http://localhost:5057/swagger/v1/swagger.json`
 
@@ -43,15 +47,29 @@ In the **expense-app** repo, point the app at this base URL (no trailing slash):
 flutter run -d chrome --dart-define=AZURE_API_BASE_URL=http://localhost:5057
 ```
 
-See `lib/application/cloud_backend_env.dart` in **expense-app**.
+See `lib/application/cloud_backend_env.dart`. For **Phase 5.b** dev-only book helpers (`reset`, `seed-taxonomy`, `seed-demo`), use `lib/data/remote/dev_backend_api_client.dart`. If the API sets `DevData:RequireSharedSecret`, pass the same value from Flutter:
+
+```bash
+flutter run --dart-define=AZURE_API_BASE_URL=http://localhost:5057 --dart-define=DEV_DATA_SECRET=your-secret
+```
+
+## Dev-only book endpoints (Phase 5.b)
+
+Enabled when `DevData:ExposeEndpoints` is **true** (default in `appsettings.Development.json`). All accept JSON `{ "userId": "<tenant id>" }`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/dev/books/reset` | Delete all book rows for the user |
+| POST | `/api/dev/books/seed-taxonomy` | Insert default expense + income taxonomy |
+| POST | `/api/dev/books/seed-demo` | Reset, then taxonomy + sample data |
+
+Optional header `X-Dev-Data-Secret` when `DevData:RequireSharedSecret` and `DevData:SharedSecret` are set.
 
 ## Layout
 
 - `ExpenseTracker.sln` — solution
-- `ExpenseTracker.Api/` — web host (Kestrel), Swagger, minimal APIs
-- `ExpenseTracker.Migrations/` — versioned **DbUp** SQL scripts (Azure SQL–compatible book schema + `user_id` tenancy)
-- `ExpenseTracker.DbMigrate/` — console tool to apply scripts to your database
-- `ExpenseTracker.Migrations.Tests/` — xUnit tests (script embedded check; optional SQL integration test)
+- `ExpenseTracker.Api/` — web host (Kestrel), Swagger, minimal APIs, **EF Core** startup (create database + migrate)
+- `ExpenseTracker.Infrastructure/` — **EF Core** `DbContext`, entities, migrations, taxonomy/demo seed services (Phase **5.b**)
 
 ## Local database (Phase 5.3+)
 
@@ -73,12 +91,8 @@ No database is required for the **v0** health/hello endpoints. For **schema work
 4. **Start the SQL Server service**  
    `services.msc` → ensure **SQL Server (SQLEXPRESS)** (or your instance name) is **Running**.
 
-5. **Create the database**  
-   Connect in SSMS / Azure Data Studio to `localhost\SQLEXPRESS` (adjust if your instance differs). New Query:
-
-   ```sql
-   CREATE DATABASE ExpenseTracker;
-   ```
+5. **Database creation (optional)**  
+   If `ConnectionStrings:DefaultConnection` is set, the API **creates the database** on the server when it is missing and applies **EF Core** migrations on startup. You can still create `ExpenseTracker` manually in SSMS if you prefer.
 
 6. **Connection string (Windows auth — typical for Express on same PC)**  
    Replace the instance name if yours is not `SQLEXPRESS`:
@@ -94,41 +108,26 @@ No database is required for the **v0** health/hello endpoints. For **schema work
    ```
 
 7. **Store the connection string for the API (not in git)**  
-   From `ExpenseTracker.Api`:
+   Either copy `appsettings.local.example.json` to **`appsettings.local.json`** in `ExpenseTracker.Api/` and edit `ConnectionStrings:DefaultConnection`, **or** use user secrets from `ExpenseTracker.Api`:
 
    ```bash
    cd ExpenseTracker.Api
-   dotnet user-secrets init
    dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\SQLEXPRESS;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True"
    ```
 
    Adjust the value to match step 6. See [ASP.NET Core user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets).
 
-8. **Apply database migrations (book schema v1)**  
-   After the database exists and your connection string is in user secrets (or env), from the repo root:
+8. **Run the API**  
+   `dotnet run --project ExpenseTracker.Api` applies pending **EF Core** migrations after ensuring the catalog exists. No separate migrate console is required for local dev.
+
+9. **New migrations (schema changes)**  
+   From the repo root (with the same startup project for design-time):
 
    ```bash
-   dotnet run --project ExpenseTracker.DbMigrate -- "Server=localhost\SQLEXPRESS;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True"
+   dotnet ef migrations add <Name> --project ExpenseTracker.Infrastructure --startup-project ExpenseTracker.Api --output-dir Data/Migrations
    ```
 
-   Or set `ConnectionStrings__DefaultConnection` / `EXPENSE_TRACKER_CONNECTION_STRING` in the shell (user secrets apply to `ExpenseTracker.Api` only unless you duplicate them—passing the string explicitly is fine for local migrate runs). Optional: set `EXPENSE_TRACKER_CREATE_DATABASE=true` to create the database from the connection string if missing (uses DbUp `EnsureDatabase`).
-
-   Scripts live under `ExpenseTracker.Migrations/Scripts/` and are executed in lexical order; applied versions are recorded in `dbo.schemaversions`.
-
-9. **Optional: tenant isolation integration test**  
-   With SQL available, run:
-
-   ```bash
-   set EXPENSE_TRACKER_TEST_SQL=Server=...;Database=...;...
-   dotnet test ExpenseTracker.Migrations.Tests
-   ```
-
-   When the variable is unset, the isolation test exits immediately (no SQL required for `dotnet test` in CI).
-
-10. **Wire the API to SQL**  
-   Phase **5.4** adds sync endpoints and data access that use `ConnectionStrings:DefaultConnection`. The v0 API still does not open SQL.
-
-11. **Firewall**  
+10. **Firewall**  
    For **localhost-only** access, extra firewall rules are usually unnecessary. If you connect from another machine or container, open TCP **1433** (or the port configured for your instance) as required.
 
 ### Alternatives
@@ -146,7 +145,7 @@ cd ExpenseTracker.Api
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=ExpenseTracker;User Id=sa;Password=<YourStrong!Passw0rd>;TrustServerCertificate=True"
 ```
 
-Create `ExpenseTracker` on the server, then point the connection string at it.
+The API can create `ExpenseTracker` automatically when the connection string points at that catalog name.
 
 **LocalDB** — lightweight on Windows; connection string like `Server=(localdb)\\MSSQLLocalDB;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True`. Same rule: **secrets in user secrets**, not in committed files.
 
