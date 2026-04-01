@@ -49,6 +49,9 @@ See `lib/application/cloud_backend_env.dart` in **expense-app**.
 
 - `ExpenseTracker.sln` — solution
 - `ExpenseTracker.Api/` — web host (Kestrel), Swagger, minimal APIs
+- `ExpenseTracker.Migrations/` — versioned **DbUp** SQL scripts (Azure SQL–compatible book schema + `user_id` tenancy)
+- `ExpenseTracker.DbMigrate/` — console tool to apply scripts to your database
+- `ExpenseTracker.Migrations.Tests/` — xUnit tests (script embedded check; optional SQL integration test)
 
 ## Local database (Phase 5.3+)
 
@@ -101,10 +104,31 @@ No database is required for the **v0** health/hello endpoints. For **schema work
 
    Adjust the value to match step 6. See [ASP.NET Core user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets).
 
-8. **Wire the API when migrations exist**  
-   Phase 5.3 will add EF Core or another data layer that reads `ConnectionStrings:DefaultConnection` (or the name you choose). Until then, the API does not open SQL.
+8. **Apply database migrations (book schema v1)**  
+   After the database exists and your connection string is in user secrets (or env), from the repo root:
 
-9. **Firewall**  
+   ```bash
+   dotnet run --project ExpenseTracker.DbMigrate -- "Server=localhost\SQLEXPRESS;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True"
+   ```
+
+   Or set `ConnectionStrings__DefaultConnection` / `EXPENSE_TRACKER_CONNECTION_STRING` in the shell (user secrets apply to `ExpenseTracker.Api` only unless you duplicate them—passing the string explicitly is fine for local migrate runs). Optional: set `EXPENSE_TRACKER_CREATE_DATABASE=true` to create the database from the connection string if missing (uses DbUp `EnsureDatabase`).
+
+   Scripts live under `ExpenseTracker.Migrations/Scripts/` and are executed in lexical order; applied versions are recorded in `dbo.schemaversions`.
+
+9. **Optional: tenant isolation integration test**  
+   With SQL available, run:
+
+   ```bash
+   set EXPENSE_TRACKER_TEST_SQL=Server=...;Database=...;...
+   dotnet test ExpenseTracker.Migrations.Tests
+   ```
+
+   When the variable is unset, the isolation test exits immediately (no SQL required for `dotnet test` in CI).
+
+10. **Wire the API to SQL**  
+   Phase **5.4** adds sync endpoints and data access that use `ConnectionStrings:DefaultConnection`. The v0 API still does not open SQL.
+
+11. **Firewall**  
    For **localhost-only** access, extra firewall rules are usually unnecessary. If you connect from another machine or container, open TCP **1433** (or the port configured for your instance) as required.
 
 ### Alternatives
@@ -124,8 +148,8 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,
 
 Create `ExpenseTracker` on the server, then point the connection string at it.
 
-**LocalDB** — lightweight on Windows; connection string like `Server=(localdb)\\MSSSSQLLocalDB;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True`. Same rule: **secrets in user secrets**, not in committed files.
+**LocalDB** — lightweight on Windows; connection string like `Server=(localdb)\\MSSQLLocalDB;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True`. Same rule: **secrets in user secrets**, not in committed files.
 
 ## Docs (product / phases)
 
-Phase checklist, **sync contract** (`05-sync-spec.md`), and Azure strategy live in the **expense-app** repo under `docs/` (e.g. `05-implementation-phase-5-plan.md`, `05-azure-hosting-strategy.md`). **Next backend milestone:** Phase **5.3** — versioned migrations and schema aligned with that spec, tested on local SQL Server **before** any billable **Azure SQL**.
+Phase checklist, **sync contract** (`05-sync-spec.md`), and Azure strategy live in the **expense-app** repo under `docs/` (e.g. `05-implementation-phase-5-plan.md`, `05-azure-hosting-strategy.md`). **Next backend milestone:** Phase **5.4** — sync **REST** contract and API implementation against this schema **before** any billable **Azure SQL**.
