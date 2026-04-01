@@ -12,11 +12,11 @@ public static class DependencyInjection
         string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        services.AddDbContext<ExpenseTrackerDbContext>(options =>
+        _ = services.AddDbContext<ExpenseTrackerDbContext>(options =>
             options.UseSqlServer(
                 connectionString,
                 sql => sql.MigrationsAssembly(typeof(ExpenseTrackerDbContext).Assembly.FullName)));
-        services.AddScoped<DevBookDataService>();
+        _ = services.AddScoped<DevBookDataService>();
         return services;
     }
 }

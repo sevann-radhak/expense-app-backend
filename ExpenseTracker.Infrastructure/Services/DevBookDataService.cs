@@ -68,28 +68,21 @@ public sealed class DevBookDataService(ExpenseTrackerDbContext db)
     {
         ValidateUserId(userId);
         await ResetUserBookAsync(userId, cancellationToken).ConfigureAwait(false);
+        await SeedTaxonomyAsync(userId, cancellationToken).ConfigureAwait(false);
+
         DateTime utc = DateTime.UtcNow;
-        ExpenseTaxonomySeeder.Seed(db, userId, utc);
-        IncomeTaxonomySeeder.Seed(db, userId, utc);
-
-        _ = db.UserBookMetadata.Add(new UserBookMetadataEntity
-        {
-            UserId = userId,
-            BookRevision = 0,
-            UpdatedAtUtc = utc,
-        });
-
-        _ = db.PaymentInstruments.Add(new PaymentInstrumentEntity
-        {
-            UserId = userId,
-            Id = "pi_demo_main",
-            Label = "Demo Visa",
-            BankName = "Demo Bank",
-            IsActive = true,
-            IsDefault = true,
-            FeeDescription = "",
-            UpdatedAtUtc = utc,
-        });
+        _ = db.PaymentInstruments.Add(
+            new PaymentInstrumentEntity
+            {
+                UserId = userId,
+                Id = "pi_demo_main",
+                Label = "Demo Visa",
+                BankName = "Demo Bank",
+                IsActive = true,
+                IsDefault = true,
+                FeeDescription = "",
+                UpdatedAtUtc = utc,
+            });
 
         db.Expenses.AddRange(
             new ExpenseEntity

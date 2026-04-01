@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Design;
 
 namespace ExpenseTracker.Infrastructure.Data;
 
-/// <summary>Used by <c>dotnet ef migrations</c> when the startup project does not supply a context at design time.</summary>
 public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<ExpenseTrackerDbContext>
 {
     public ExpenseTrackerDbContext CreateDbContext(string[] args)

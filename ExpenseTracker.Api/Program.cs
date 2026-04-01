@@ -1,17 +1,11 @@
 using ExpenseTracker.Api.Configuration;
 using ExpenseTracker.Api.Endpoints;
+using ExpenseTracker.Api.Hosting;
 using ExpenseTracker.Infrastructure;
-using ExpenseTracker.Infrastructure.Database;
-using ExpenseTracker.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-
-// Optional machine-specific secrets (gitignored). See appsettings.local.example.json.
-builder.Configuration.AddJsonFile(
-    Path.Combine(builder.Environment.ContentRootPath, "appsettings.local.json"),
-    optional: true,
-    reloadOnChange: true);
+builder.AddAppSettingsLocal();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -22,15 +16,13 @@ builder.Services.AddSwaggerGen(options =>
         {
             Title = "Expense Tracker API",
             Version = "v1",
-            Description =
-                "HTTP API for sync, health, and dev-only book seeding. Pair with Flutter via AZURE_API_BASE_URL. " +
-                "Phase 5.b: EF Core creates the database and applies migrations on startup when ConnectionStrings:DefaultConnection is set.",
+            Description = "Expense tracker HTTP API (health, dev book seeding, future sync).",
         });
 });
 
 builder.Services.Configure<DevDataOptions>(builder.Configuration.GetSection(DevDataOptions.SectionName));
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     _ = builder.Services.AddExpenseTrackerSqlServer(connectionString);
@@ -38,33 +30,20 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 else
 {
     Console.WriteLine(
-        "Warning: ConnectionStrings:DefaultConnection is not set. SQL Server features and dev book endpoints are disabled. " +
-        "Use user secrets or environment variables (see README).");
+        "Warning: ConnectionStrings:DefaultConnection is not set. SQL and dev book endpoints are disabled.");
 }
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        _ = policy
-            .SetIsOriginAllowed(_ => true)
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        _ = policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
     });
 });
 
 WebApplication app = builder.Build();
 
-if (!string.IsNullOrWhiteSpace(connectionString))
-{
-    await SqlServerDatabaseCreator.EnsureDatabaseExistsAsync(connectionString).ConfigureAwait(false);
-    await using var scope = app.Services.CreateAsyncScope();
-    var db = scope.ServiceProvider.GetService<ExpenseTrackerDbContext>();
-    if (db is not null)
-    {
-        await db.Database.MigrateAsync().ConfigureAwait(false);
-    }
-}
+await app.EnsureCreatedAndMigratedAsync(connectionString).ConfigureAwait(false);
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -84,7 +63,7 @@ app.MapGet("/api/hello", () => Results.Json(new { message = "Hello, world!" }))
 
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
-    var devOpts = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<DevDataOptions>>();
+    var devOpts = app.Services.GetRequiredService<IOptions<DevDataOptions>>();
     app.MapDevBookEndpoints(devOpts);
 }
 

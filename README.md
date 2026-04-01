@@ -18,7 +18,7 @@ dotnet run --project ExpenseTracker.Api
 
 ### Configuration (secrets)
 
-Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`appsettings.local.json`** (gitignored — copy from `ExpenseTracker.Api/appsettings.local.example.json`), ASP.NET Core **user secrets** (Development), then **environment variables** (override keys use double underscores, e.g. `ConnectionStrings__DefaultConnection`). See `ConfigurationHints` in `appsettings.json` for common variable names.
+Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`appsettings.local.json`** (gitignored — copy from `ExpenseTracker.Api/appsettings.local.example.json`), ASP.NET Core **user secrets** (Development), then **environment variables** (nested keys use `__`, e.g. `ConnectionStrings__DefaultConnection`, `DevData__ExposeEndpoints`, `DevData__SharedSecret`).
 
 - **Swagger UI:** open **http://localhost:5057/swagger** (HTTP profile; see `Properties/launchSettings.json` for ports).
 - **OpenAPI JSON:** `http://localhost:5057/swagger/v1/swagger.json`
