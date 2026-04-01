@@ -50,6 +50,25 @@ See `lib/application/cloud_backend_env.dart` in **expense-app**.
 - `ExpenseTracker.sln` — solution
 - `ExpenseTracker.Api/` — web host (Kestrel), Swagger, minimal APIs
 
+## Optional: SQL Server locally (Phase 5.3+)
+
+No database is required for the **v0** health/hello endpoints. For **schema work** and sync APIs, use **SQL Server** on the same machine (Azure SQL–compatible T-SQL).
+
+**Docker (example)** — pick your own strong `MSSQL_SA_PASSWORD`; do not commit it:
+
+```bash
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<YourStrong!Passw0rd>" -p 1433:1433 --name sql-expense -d mcr.microsoft.com/mssql/server:2022-latest
+```
+
+Create an empty database (e.g. `ExpenseTracker`) with SQL Server tools or Azure Data Studio. **Connection string:** keep it out of git. For ASP.NET Core, use [User secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) from `ExpenseTracker.Api`:
+
+```bash
+cd ExpenseTracker.Api
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=ExpenseTracker;User Id=sa;Password=<YourStrong!Passw0rd>;TrustServerCertificate=True"
+```
+
+**LocalDB** is an alternative on Windows; same rule — store the connection string in user secrets or a gitignored override, not in committed files.
+
 ## Docs (product / phases)
 
-Phase checklist and Azure strategy live in the **expense-app** repo under `docs/` (e.g. `05-implementation-phase-5-plan.md`, `05-azure-hosting-strategy.md`).
+Phase checklist, **sync contract** (`05-sync-spec.md`), and Azure strategy live in the **expense-app** repo under `docs/` (e.g. `05-implementation-phase-5-plan.md`, `05-azure-hosting-strategy.md`). **Next backend milestone:** Phase **5.3** — versioned migrations and schema aligned with that spec, tested on local SQL Server **before** any billable **Azure SQL**.
