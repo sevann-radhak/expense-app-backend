@@ -324,7 +324,6 @@ public static class UsersEndpoints
         [JsonPropertyName("displayName")]
         public string? DisplayName { get; set; }
 
-        /// <summary>Use <see cref="DateTimeOffset.MinValue"/> to clear lockout.</summary>
         [JsonPropertyName("lockoutEndUtc")]
         public DateTimeOffset? LockoutEndUtc { get; set; }
     }

@@ -10,86 +10,32 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.AddAppSettingsLocal();
 
+builder.Services.Configure<OpenApiOptions>(builder.Configuration.GetSection(OpenApiOptions.SectionName));
+builder.Services.Configure<ApiEndpointsOptions>(builder.Configuration.GetSection(ApiEndpointsOptions.SectionName));
+builder.Services.Configure<AppCorsOptions>(builder.Configuration.GetSection(AppCorsOptions.SectionName));
 builder.Services.Configure<InitialAdminOptions>(builder.Configuration.GetSection(InitialAdminOptions.SectionName));
 builder.Services.Configure<SetupOptions>(builder.Configuration.GetSection(SetupOptions.SectionName));
 builder.Services.Configure<DevDataOptions>(builder.Configuration.GetSection(DevDataOptions.SectionName));
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc(
-        "v1",
-        new OpenApiInfo
-        {
-            Title = "Expense Tracker API",
-            Version = "v1",
-            Description = "Expense tracker API: auth (JWT), users, dev book seeding, health.",
-        });
-    options.AddSecurityDefinition(
-        "bearer",
-        new OpenApiSecurityScheme
-        {
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "JWT",
-            Description = "JWT Authorization header using the Bearer scheme.",
-        });
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference("bearer", document)] = [],
-    });
-});
+OpenApiOptions openApi = builder.Configuration.GetSection(OpenApiOptions.SectionName).Get<OpenApiOptions>() ?? new OpenApiOptions();
+_ = builder.Services.AddExpenseTrackerOpenApi(openApi);
 
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     _ = builder.Services.AddExpenseTrackerSqlServer(connectionString);
+    IConfigurationSection identitySection = builder.Configuration.GetSection("Identity");
     _ = builder.Services
-        .AddIdentity<ApplicationUser, IdentityRole>(options =>
-        {
-            options.Password.RequiredLength = 8;
-            options.Password.RequireDigit = true;
-            options.Password.RequireNonAlphanumeric = false;
-            options.Password.RequireUppercase = false;
-            options.User.RequireUniqueEmail = true;
-            options.SignIn.RequireConfirmedEmail = false;
-            options.Lockout.AllowedForNewUsers = true;
-            options.Lockout.MaxFailedAccessAttempts = 5;
-            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-        })
+        .AddIdentity<ApplicationUser, IdentityRole>(options => identitySection.Bind(options))
         .AddEntityFrameworkStores<ExpenseTrackerDbContext>()
         .AddDefaultTokenProviders();
 
-    JwtOptions jwtFromConfig = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-    string signingKey = jwtFromConfig.SigningKey ?? string.Empty;
-    if (signingKey.Length < 32)
-    {
-        if (builder.Environment.IsDevelopment())
-        {
-            signingKey = "Development-only-Jwt-Key-Minimum32Chars!";
-            Console.WriteLine("Warning: Jwt:SigningKey not set; using Development-only default. Set Jwt__SigningKey for production-like local tests.");
-        }
-        else
-        {
-            throw new InvalidOperationException("Jwt:SigningKey must be at least 32 characters when ConnectionStrings:DefaultConnection is set.");
-        }
-    }
-
-    string issuer = string.IsNullOrWhiteSpace(jwtFromConfig.Issuer) ? "ExpenseTracker" : jwtFromConfig.Issuer;
-    string audience = string.IsNullOrWhiteSpace(jwtFromConfig.Audience) ? "ExpenseTracker" : jwtFromConfig.Audience;
-    int accessMinutes = jwtFromConfig.AccessTokenMinutes > 0 ? jwtFromConfig.AccessTokenMinutes : 120;
-    _ = builder.Services.Configure<JwtOptions>(o =>
-    {
-        o.Issuer = issuer;
-        o.Audience = audience;
-        o.SigningKey = signingKey;
-        o.AccessTokenMinutes = accessMinutes;
-    });
+    JwtOptions jwt = JwtStartup.Resolve(builder.Configuration, builder.Environment);
+    _ = builder.Services.AddSingleton(Options.Create(jwt));
 
     _ = builder.Services.AddAuthentication(options =>
         {
@@ -104,10 +50,10 @@ if (!string.IsNullOrWhiteSpace(connectionString))
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = issuer,
-                ValidAudience = audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
-                ClockSkew = TimeSpan.FromMinutes(1),
+                ValidIssuer = jwt.Issuer,
+                ValidAudience = jwt.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+                ClockSkew = TimeSpan.FromMinutes(jwt.ClockSkewMinutes),
                 RoleClaimType = System.Security.Claims.ClaimTypes.Role,
             };
         });
@@ -118,15 +64,32 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 }
 else
 {
-    Console.WriteLine(
-        "Warning: ConnectionStrings:DefaultConnection is not set. SQL, Identity, JWT routes, and dev book endpoints are disabled.");
+    ApiEndpointsOptions apiWhenDisabled =
+        builder.Configuration.GetSection(ApiEndpointsOptions.SectionName).Get<ApiEndpointsOptions>() ?? new ApiEndpointsOptions();
+    if (apiWhenDisabled.LogWhenDatabaseDisabled)
+    {
+        Console.WriteLine(
+            "Warning: ConnectionStrings:DefaultConnection is not set. SQL, Identity, JWT routes, and dev book endpoints are disabled.");
+    }
 }
 
+AppCorsOptions cors = builder.Configuration.GetSection(AppCorsOptions.SectionName).Get<AppCorsOptions>() ?? new AppCorsOptions();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        _ = policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
+        if (cors.AllowAnyOrigin)
+        {
+            _ = policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
+        }
+        else if (cors.AllowedOrigins is { Length: > 0 })
+        {
+            _ = policy.WithOrigins(cors.AllowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            _ = policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
+        }
     });
 });
 
@@ -134,11 +97,7 @@ WebApplication app = builder.Build();
 
 await app.EnsureCreatedAndMigratedAsync(connectionString).ConfigureAwait(false);
 
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Expense Tracker API v1");
-});
+_ = app.UseExpenseTrackerSwaggerUi(openApi);
 
 app.UseCors();
 
@@ -148,11 +107,14 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     app.UseAuthorization();
 }
 
-app.MapGet("/api/health", () => Results.Json(new { status = "ok", service = "expense-tracker-api" }))
+ApiEndpointsOptions apiEndpoints = app.Services.GetRequiredService<IOptions<ApiEndpointsOptions>>().Value;
+app.MapGet(
+        "/api/health",
+        () => Results.Json(new { status = apiEndpoints.HealthStatus, service = apiEndpoints.HealthServiceName }))
     .WithName("HealthCheck")
     .WithTags("System");
 
-app.MapGet("/api/hello", () => Results.Json(new { message = "Hello, world!" }))
+app.MapGet("/api/hello", () => Results.Json(new { message = apiEndpoints.HelloMessage }))
     .WithName("HelloWorld")
     .WithTags("Hello");
 

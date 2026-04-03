@@ -3,7 +3,7 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
-# Local API secrets (see appsettings.local.example.json)
+# Local overrides (connection string, Jwt:SigningKey, etc.); see README
 ExpenseTracker.Api/appsettings.local.json
 
 # User-specific files

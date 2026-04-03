@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 
 namespace ExpenseTracker.Api.Hosting;
 
-/// <summary>Ensures roles exist; optionally creates the first SuperAdmin from configuration.</summary>
 public sealed class IdentitySeedHostedService(
     IServiceProvider services,
     ILogger<IdentitySeedHostedService> logger,

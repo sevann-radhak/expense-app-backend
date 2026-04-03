@@ -8,8 +8,13 @@ public sealed class JwtOptions
 
     public string Audience { get; set; } = "ExpenseTracker";
 
-    /// <summary>HMAC-SHA256 key; use at least 32 bytes (256 bits). Set via user secrets or environment variables.</summary>
     public string SigningKey { get; set; } = "";
 
     public int AccessTokenMinutes { get; set; } = 120;
+
+    public int MinimumSigningKeyLength { get; set; } = 32;
+
+    public string DevelopmentFallbackSigningKey { get; set; } = "";
+
+    public int ClockSkewMinutes { get; set; } = 1;
 }

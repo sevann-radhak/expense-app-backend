@@ -18,7 +18,24 @@ dotnet run --project ExpenseTracker.Api
 
 ### Configuration (secrets)
 
-Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`appsettings.local.json`** (gitignored — copy from `ExpenseTracker.Api/appsettings.local.example.json`), ASP.NET Core **user secrets** (Development), then **environment variables** (nested keys use `__`, e.g. `ConnectionStrings__DefaultConnection`, `DevData__ExposeEndpoints`, `DevData__SharedSecret`).
+Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`ExpenseTracker.Api/appsettings.local.json`** (gitignored), ASP.NET Core **user secrets** (Development), then **environment variables** (nested keys use `__`, e.g. `ConnectionStrings__DefaultConnection`, `Jwt__SigningKey`, `DevData__ExposeEndpoints`, `DevData__SharedSecret`).
+
+Create **`appsettings.local.json`** next to the other appsettings files when you need machine-specific values (SQL connection string, production-like JWT secret in Development, etc.). Minimal example:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=ExpenseTracker;Trusted_Connection=True;TrustServerCertificate=True"
+  },
+  "Jwt": {
+    "SigningKey": "your-at-least-32-character-secret-here"
+  }
+}
+```
+
+**Configurable areas** (defaults in `appsettings.json`): **`OpenApi`** (title, Swagger paths), **`Api`** (health/hello payloads, `LogWhenDatabaseDisabled`), **`Cors`** (`AllowAnyOrigin` vs `AllowedOrigins`), **`Jwt`** (issuer, audience, signing key, clock skew, `DevelopmentFallbackSigningKey` in `appsettings.Development.json` when `Jwt:SigningKey` is empty), **`Identity`** (password and lockout rules), plus **`InitialAdmin`**, **`Setup`**, **`DevData`**.
+
+**EF Core design-time:** `dotnet ef migrations add` uses environment variable **`ConnectionStrings__DefaultConnection`** if set; otherwise the fallback in `EfDesignTimeDefaults.FallbackConnectionString` (LocalDB).
 
 - **Swagger UI:** open **http://localhost:5057/swagger** (HTTP profile; see `Properties/launchSettings.json` for ports).
 - **OpenAPI JSON:** `http://localhost:5057/swagger/v1/swagger.json`
@@ -43,7 +60,7 @@ curl http://localhost:5057/api/health
 
 When `ConnectionStrings:DefaultConnection` is set, the API registers **users, roles, and JWT bearer** auth. Book tables use `UserId` (`nvarchar(450)`) as before, with **foreign keys to `users(Id)`** (`ON DELETE NO ACTION` / restrict) so every book row must reference a real account. Applying migrations fails if orphaned `UserId` values exist; fix data or create matching users first. Removing an Identity user while book rows still reference them will fail until those rows are deleted or reassigned (consider an explicit purge in application code before `UserManager.DeleteAsync`).
 
-**Configuration:** `Jwt` (issuer, audience, `SigningKey` ≥ 32 characters in non-Development), optional `InitialAdmin` (startup seed of the first SuperAdmin), optional `Setup:BootstrapToken` (header `X-Setup-Token` for `POST /api/auth/bootstrap-superadmin`). In **Development**, a dev-only signing key is used if `Jwt:SigningKey` is missing (see `Program.cs`).
+**Configuration:** `Jwt` (issuer, audience, `SigningKey` ≥ `MinimumSigningKeyLength` in non-Development), optional `InitialAdmin`, optional `Setup:BootstrapToken` (header `X-Setup-Token` for `POST /api/auth/bootstrap-superadmin`). In **Development**, if `Jwt:SigningKey` is too short, **`Jwt:DevelopmentFallbackSigningKey`** from configuration is used (set in `appsettings.Development.json` by default).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -132,7 +149,7 @@ No database is required for the **v0** health/hello endpoints. For **schema work
    ```
 
 7. **Store the connection string for the API (not in git)**  
-   Either copy `appsettings.local.example.json` to **`appsettings.local.json`** in `ExpenseTracker.Api/` and edit `ConnectionStrings:DefaultConnection`, **or** use user secrets from `ExpenseTracker.Api`:
+   Add **`ExpenseTracker.Api/appsettings.local.json`** with `ConnectionStrings:DefaultConnection` (see the template under *Configuration* above), **or** use user secrets from `ExpenseTracker.Api`:
 
    ```bash
    cd ExpenseTracker.Api

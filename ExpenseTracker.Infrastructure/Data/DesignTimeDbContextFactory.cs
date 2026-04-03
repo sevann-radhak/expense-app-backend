@@ -7,9 +7,10 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Exp
 {
     public ExpenseTrackerDbContext CreateDbContext(string[] args)
     {
+        string connectionString = Environment.GetEnvironmentVariable(EfDesignTimeDefaults.ConnectionEnvironmentVariable)
+            ?? EfDesignTimeDefaults.FallbackConnectionString;
         DbContextOptions<ExpenseTrackerDbContext> options = new DbContextOptionsBuilder<ExpenseTrackerDbContext>()
-            .UseSqlServer(
-                "Server=(localdb)\\MSSQLLocalDB;Database=ExpenseTrackerEfDesign;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true")
+            .UseSqlServer(connectionString)
             .Options;
         return new ExpenseTrackerDbContext(options);
     }

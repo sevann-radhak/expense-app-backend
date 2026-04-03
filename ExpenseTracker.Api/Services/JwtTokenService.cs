@@ -14,10 +14,11 @@ public sealed class JwtTokenService(IOptions<JwtOptions> optionsAccessor)
 
     public (string Token, DateTimeOffset ExpiresAtUtc) CreateAccessToken(ApplicationUser user, IReadOnlyList<string> roles)
     {
-        if (string.IsNullOrWhiteSpace(_options.SigningKey) || _options.SigningKey.Length < 32)
+        int minLen = _options.MinimumSigningKeyLength > 0 ? _options.MinimumSigningKeyLength : 32;
+        if (string.IsNullOrWhiteSpace(_options.SigningKey) || _options.SigningKey.Length < minLen)
         {
             throw new InvalidOperationException(
-                "Jwt:SigningKey must be set (min 32 characters). Use user secrets or environment variable Jwt__SigningKey.");
+                $"Jwt:SigningKey must be set (min {minLen} characters). Use user secrets or Jwt__SigningKey.");
         }
 
         SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_options.SigningKey));
