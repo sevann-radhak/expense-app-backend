@@ -19,6 +19,7 @@ alwaysApply: true
 ## Conventions
 
 - **English** for code, identifiers, and API contracts.
+- **Tests:** follow **`docs/TESTING.md`**; new features include **unit** and/or **integration** tests as appropriate (see **`.cursor/rules/expense-backend-testing.md`**).
 - **No secrets** in source: connection strings and keys via **environment**, **user secrets**, or **Azure Key Vault** in hosted environments.
 - Keep **CORS** locked down outside local development.
 - Prefer **versioned SQL migrations** in this repo when the database layer is added.

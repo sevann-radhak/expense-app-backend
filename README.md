@@ -16,6 +16,17 @@ dotnet build ExpenseTracker.sln -c Release
 dotnet run --project ExpenseTracker.Api
 ```
 
+### Tests
+
+See **`docs/TESTING.md`** for strategy, traits, and CI. Quick local runs:
+
+```bash
+dotnet test tests/ExpenseTracker.UnitTests --filter "Category=Unit"
+dotnet test tests/ExpenseTracker.IntegrationTests --filter "Category=Integration"
+```
+
+Integration tests need **Docker** (Testcontainers starts SQL Server). Run `dotnet test ExpenseTracker.sln` for everything.
+
 ### Configuration (secrets)
 
 Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`ExpenseTracker.Api/appsettings.local.json`** (gitignored), ASP.NET Core **user secrets** (Development), then **environment variables** (nested keys use `__`, e.g. `ConnectionStrings__DefaultConnection`, `Jwt__SigningKey`, `DevData__ExposeEndpoints`, `DevData__SharedSecret`).

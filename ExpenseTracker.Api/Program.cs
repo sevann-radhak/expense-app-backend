@@ -149,3 +149,5 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 }
 
 app.Run();
+
+public partial class Program;

@@ -14,6 +14,7 @@ alwaysApply: false
 |-----------|-----|
 | **`expense-backend-project.md`** | Repo scope, stack summary, links to Flutter docs. |
 | **This file** | Architecture, layering, API/data/security/testing expectations for C# work. |
+| **`expense-backend-testing.md`** | Tests required with features; traits, fixtures, links to **`docs/TESTING.md`**. |
 | **`expense-app`** `.cursor/rules/expense-app-architecture.md` | Flutter-side clean architecture; keep HTTP/JSON contracts aligned with sync spec. |
 
 **Per-phase checklists** live in **`expense-app`** `docs/05-implementation-phase-5-plan.md` (and related phase docs).
@@ -136,9 +137,12 @@ Keep **dependencies pointing inward** (application/domain do not depend on `Http
 
 ### Testing
 
-- **Unit** tests for application/domain without DB.
-- **Integration** tests with **local SQL** or **Testcontainers** + **`WebApplicationFactory`** when valuable.
-- Always cover: **user A cannot read user B’s data**; **optimistic concurrency** if snapshot versioning is used.
+Authoritative guide: **`docs/TESTING.md`** (layout, traits, Testcontainers, Respawn, CI).
+
+- **Unit:** application/domain and services **without** SQL or Docker; `[Trait("Category","Unit")]`.
+- **Integration:** **Testcontainers.MsSql** + **`WebApplicationFactory<Program>`** + **Respawn** for isolation; traits `Integration`, `Integration.Api`, `Integration.Database` as appropriate.
+- **New endpoints or behavior:** add or extend tests in the same PR—no merge without coverage for the changed surface unless explicitly documented as a follow-up.
+- Always cover when relevant: **user A cannot read user B’s data**; **optimistic concurrency** if snapshot versioning is used.
 
 ### Cross-repo contract
 
