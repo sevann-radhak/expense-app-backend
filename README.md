@@ -46,7 +46,7 @@ Create **`appsettings.local.json`** next to the other appsettings files when you
 }
 ```
 
-**Configurable areas** (defaults in `appsettings.json`): **`OpenApi`** (title, Swagger paths), **`Api`** (health/hello payloads, `LogWhenDatabaseDisabled`), **`Cors`** (`AllowAnyOrigin` vs `AllowedOrigins`), **`Jwt`** (issuer, audience, signing key, clock skew, `DevelopmentFallbackSigningKey` in `appsettings.Development.json` when `Jwt:SigningKey` is empty), **`Identity`** (password and lockout rules), plus **`InitialAdmin`**, **`Setup`**, **`DevData`**.
+**Configurable areas** (defaults in `appsettings.json`): **`OpenApi`**, **`Api`**, **`Cors`** (base file lists **localhost** origins; **`appsettings.Development.json`** sets `AllowAnyOrigin: true` for convenience; **`appsettings.Production.json`** requires explicit `AllowedOrigins` or startup validation fails), **`Entra`** (`Enabled`, `Authority`, `Audience` — optional second JWT issuer via policy scheme; **off** by default), **`Jwt`**, **`Identity`**, **`InitialAdmin`**, **`Setup`**, **`DevData`**.
 
 **EF Core design-time:** `dotnet ef migrations add` uses environment variable **`ConnectionStrings__DefaultConnection`** if set; otherwise the fallback in `EfDesignTimeDefaults.FallbackConnectionString` (LocalDB).
 
@@ -65,9 +65,11 @@ curl http://localhost:5057/api/health
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/hello` | Sample JSON `{ "message": "Hello, world!" }` |
-| GET | `/api/health` | Liveness JSON for probes |
+| GET | `/api/health` | Liveness JSON: `status`, `service`, `database` (`ok` / `unavailable` / `error` / `skipped` when SQL disabled). |
 
-**CORS** is permissive for **local development** only; restrict before any shared or production deployment.
+**CORS:** see **`Cors`** settings above. **Rate limiting:** fixed-window limits on **`/api/auth/*`** (per IP) and **`/api/sync/*`** (per authenticated user); disabled when `ASPNETCORE_ENVIRONMENT=Integration` (test host).
+
+**Production:** `DevData:ExposeEndpoints` must be **false** (validated at startup). **`appsettings.Production.json`** ships a template **CORS** origin — replace with your real SPA URL before hosted deploy (**Phase 8.0** in sibling **expense-app** repo: `docs/08-implementation-phase-8-plan.md`).
 
 ## Authentication (JWT + ASP.NET Identity)
 
@@ -92,6 +94,17 @@ When `ConnectionStrings:DefaultConnection` is set, the API registers **users, ro
 **Roles:** `SuperAdmin`, `Admin`, `User`. Apply migrations after pulling (`dotnet ef database update` with the same connection string as the app).
 
 **JWT claims:** Access tokens include **`subscription_tier`** (`basic` | `pro` | `pro_max`) from the user row (Phase **5.12**).
+
+**Microsoft Entra (optional):** When **`Entra:Enabled`** is **true** and **`Authority`** / **`Audience`** are set, bearer tokens whose issuer looks like Microsoft Entra (`login.microsoftonline.com`, `sts.windows.net`, `ciamlogin.com`) are validated as **JWT scheme `EntraJwt`**. Local Identity tokens stay on **`LocalJwt`**. **Provisioning** Entra apps and mapping **`oid`/`sub` → `users.Id`** is a client/onboarding concern — enable Entra only when those accounts align with book `user_id`.
+
+**Compliance (Phase 5.7):**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/compliance/me/delete-account` | Bearer | Body `{ "password": "<current>" }`. Purges book rows then deletes Identity user. **409** if caller is the **only** SuperAdmin. |
+| GET | `/api/compliance/me/export-hint` | Bearer | JSON hint pointing to **`GET /api/sync/book`** as the v1 data export. |
+
+**Admin audit:** Structured **Warning** logs (`ExpenseTracker.Api.AdminAudit`) when admins delete users, change **subscription tier**, or replace roles.
 
 ## Book sync (Phase **5.4**)
 

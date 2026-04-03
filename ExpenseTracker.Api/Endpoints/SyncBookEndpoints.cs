@@ -1,3 +1,4 @@
+using ExpenseTracker.Api.Hosting;
 using ExpenseTracker.Infrastructure.Services;
 using ExpenseTracker.Infrastructure.Sync;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -8,9 +9,13 @@ namespace ExpenseTracker.Api.Endpoints;
 
 public static class SyncBookEndpoints
 {
-    public static void MapSyncBookEndpoints(this WebApplication app)
+    public static void MapSyncBookEndpoints(this WebApplication app, IHostEnvironment environment)
     {
         RouteGroupBuilder g = app.MapGroup("/api/sync/book").WithTags("Sync").RequireAuthorization();
+        if (!environment.IsEnvironment("Integration"))
+        {
+            _ = g.RequireRateLimiting(RateLimiterExtensions.SyncPolicy);
+        }
 
         _ = g.MapGet(
                 "/",

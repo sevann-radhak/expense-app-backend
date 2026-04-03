@@ -3,11 +3,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace ExpenseTracker.Api.Endpoints;
 
 public static class UsersEndpoints
 {
+    private const string AdminAuditLoggerCategory = "ExpenseTracker.Api.AdminAudit";
+
     public static void MapUsersEndpoints(this WebApplication app)
     {
         RouteGroupBuilder g = app.MapGroup("/api/users").WithTags("Users");
@@ -192,7 +195,8 @@ public static class UsersEndpoints
         string userId,
         PutUserRequest body,
         ClaimsPrincipal principal,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ILoggerFactory loggerFactory)
     {
         ApplicationUser? target = await userManager.FindByIdAsync(userId).ConfigureAwait(false);
         if (target is null)
@@ -256,15 +260,30 @@ public static class UsersEndpoints
         }
 
         IdentityResult r = await userManager.UpdateAsync(target).ConfigureAwait(false);
-        return !r.Succeeded
-            ? Results.BadRequest(new { errors = r.Errors.Select(e => e.Description).ToArray() })
-            : Results.Ok(await ToUserDtoAsync(target, userManager).ConfigureAwait(false));
+        if (!r.Succeeded)
+        {
+            return Results.BadRequest(new { errors = r.Errors.Select(e => e.Description).ToArray() });
+        }
+
+        if (body.SubscriptionTier is not null)
+        {
+            ILogger log = loggerFactory.CreateLogger(AdminAuditLoggerCategory);
+            string? actorId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            log.LogWarning(
+                "AdminSubscriptionTierChanged: actorUserId={ActorId} targetUserId={TargetId} newTier={Tier}",
+                actorId,
+                userId,
+                target.SubscriptionTier);
+        }
+
+        return Results.Ok(await ToUserDtoAsync(target, userManager).ConfigureAwait(false));
     }
 
     private static async Task<IResult> DeleteUserAsync(
         string userId,
         ClaimsPrincipal principal,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ILoggerFactory loggerFactory)
     {
         ApplicationUser? target = await userManager.FindByIdAsync(userId).ConfigureAwait(false);
         if (target is null)
@@ -290,16 +309,28 @@ public static class UsersEndpoints
             return Results.Forbid();
         }
 
+        string? actorIdForAudit = principal.FindFirstValue(ClaimTypes.NameIdentifier);
         IdentityResult r = await userManager.DeleteAsync(target).ConfigureAwait(false);
-        return !r.Succeeded
-            ? Results.BadRequest(new { errors = r.Errors.Select(e => e.Description).ToArray() })
-            : Results.NoContent();
+        if (!r.Succeeded)
+        {
+            return Results.BadRequest(new { errors = r.Errors.Select(e => e.Description).ToArray() });
+        }
+
+        ILogger auditLog = loggerFactory.CreateLogger(AdminAuditLoggerCategory);
+        auditLog.LogWarning(
+            "AdminUserDeleted: actorUserId={ActorId} targetUserId={TargetId} targetEmail={TargetEmail}",
+            actorIdForAudit,
+            userId,
+            target.Email);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> PutRolesAsync(
         string userId,
         PutRolesRequest body,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ClaimsPrincipal principal,
+        ILoggerFactory loggerFactory)
     {
         ApplicationUser? target = await userManager.FindByIdAsync(userId).ConfigureAwait(false);
         if (target is null)
@@ -329,9 +360,19 @@ public static class UsersEndpoints
         }
 
         IdentityResult add = await userManager.AddToRolesAsync(target, distinctRoles).ConfigureAwait(false);
-        return !add.Succeeded
-            ? Results.BadRequest(new { errors = add.Errors.Select(e => e.Description).ToArray() })
-            : Results.Ok(await ToUserDtoAsync(target, userManager).ConfigureAwait(false));
+        if (!add.Succeeded)
+        {
+            return Results.BadRequest(new { errors = add.Errors.Select(e => e.Description).ToArray() });
+        }
+
+        ILogger log = loggerFactory.CreateLogger(AdminAuditLoggerCategory);
+        string? actorId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        log.LogWarning(
+            "AdminRolesReplaced: actorUserId={ActorId} targetUserId={TargetId} roles={Roles}",
+            actorId,
+            userId,
+            string.Join(',', distinctRoles));
+        return Results.Ok(await ToUserDtoAsync(target, userManager).ConfigureAwait(false));
     }
 
     private static async Task<UserListItemDto> ToUserDtoAsync(ApplicationUser user, UserManager<ApplicationUser> userManager)

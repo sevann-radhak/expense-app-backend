@@ -20,6 +20,7 @@ public sealed class PublicApiTests(IntegrationHostFixture host)
         _ = response.StatusCode.Should().Be(HttpStatusCode.OK);
         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         _ = body.Should().Contain("expense-tracker-api");
+        _ = body.Should().Contain("database");
     }
 
     [Fact]

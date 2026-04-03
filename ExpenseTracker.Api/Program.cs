@@ -1,5 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Text;
 using ExpenseTracker.Api.Configuration;
 using ExpenseTracker.Api.Endpoints;
 using ExpenseTracker.Api.Hosting;
@@ -9,8 +7,8 @@ using ExpenseTracker.Infrastructure.Data;
 using ExpenseTracker.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.AddAppSettingsLocal();
@@ -23,6 +21,7 @@ builder.Services.Configure<AppCorsOptions>(builder.Configuration.GetSection(AppC
 builder.Services.Configure<InitialAdminOptions>(builder.Configuration.GetSection(InitialAdminOptions.SectionName));
 builder.Services.Configure<SetupOptions>(builder.Configuration.GetSection(SetupOptions.SectionName));
 builder.Services.Configure<DevDataOptions>(builder.Configuration.GetSection(DevDataOptions.SectionName));
+builder.Services.Configure<EntraJwtOptions>(builder.Configuration.GetSection(EntraJwtOptions.SectionName));
 
 OpenApiOptions openApi = builder.Configuration.GetSection(OpenApiOptions.SectionName).Get<OpenApiOptions>() ?? new OpenApiOptions();
 _ = builder.Services.AddExpenseTrackerOpenApi(openApi);
@@ -39,48 +38,17 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 
     JwtOptions jwt = JwtStartup.Resolve(builder.Configuration, builder.Environment);
     _ = builder.Services.AddSingleton(Options.Create(jwt));
+    EntraJwtOptions entra = builder.Configuration.GetSection(EntraJwtOptions.SectionName).Get<EntraJwtOptions>() ?? new EntraJwtOptions();
     _ = builder.Services.AddMemoryCache();
     _ = builder.Services.AddSingleton<IJwtBlocklist, MemoryCacheJwtBlocklist>();
 
-    _ = builder.Services.AddAuthentication(options =>
+    _ = builder.Services
+        .AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
         })
-        .AddJwtBearer(options =>
-        {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwt.Issuer,
-                ValidAudience = jwt.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
-                ClockSkew = TimeSpan.FromMinutes(jwt.ClockSkewMinutes),
-                RoleClaimType = System.Security.Claims.ClaimTypes.Role,
-            };
-            options.Events = new JwtBearerEvents
-            {
-                OnTokenValidated = context =>
-                {
-                    string? jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-                    if (string.IsNullOrEmpty(jti))
-                    {
-                        return Task.CompletedTask;
-                    }
-
-                    IJwtBlocklist blocklist = context.HttpContext.RequestServices.GetRequiredService<IJwtBlocklist>();
-                    if (blocklist.IsRevoked(jti))
-                    {
-                        context.Fail("This token has been revoked.");
-                    }
-
-                    return Task.CompletedTask;
-                },
-            };
-        });
+        .AddExpenseTrackerJwtSchemes(jwt, entra);
 
     _ = builder.Services.AddAuthorization();
     _ = builder.Services.AddSingleton<JwtTokenService>();
@@ -96,6 +64,8 @@ else
             "Warning: ConnectionStrings:DefaultConnection is not set. SQL, Identity, JWT routes, and dev book endpoints are disabled.");
     }
 }
+
+_ = builder.Services.AddExpenseTrackerRateLimiter(builder.Environment);
 
 AppCorsOptions cors = builder.Configuration.GetSection(AppCorsOptions.SectionName).Get<AppCorsOptions>() ?? new AppCorsOptions();
 builder.Services.AddCors(options =>
@@ -121,6 +91,9 @@ WebApplication app = builder.Build();
 
 await app.EnsureCreatedAndMigratedAsync(connectionString).ConfigureAwait(false);
 
+app.ValidateProductionSafety();
+app.ValidateProductionCors();
+
 _ = app.UseExpenseTrackerSwaggerUi(openApi);
 
 app.UseCors();
@@ -129,12 +102,38 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     app.UseAuthentication();
     app.UseAuthorization();
+    _ = app.UseExpenseTrackerRateLimiter(app.Environment);
 }
 
 ApiEndpointsOptions apiEndpoints = app.Services.GetRequiredService<IOptions<ApiEndpointsOptions>>().Value;
 app.MapGet(
         "/api/health",
-        () => Results.Json(new { status = apiEndpoints.HealthStatus, service = apiEndpoints.HealthServiceName }))
+        async Task<IResult> (IServiceProvider sp, IOptions<ApiEndpointsOptions> apiOptions, CancellationToken ct) =>
+        {
+            ApiEndpointsOptions opt = apiOptions.Value;
+            string status = opt.HealthStatus;
+            string database = "skipped";
+            ExpenseTrackerDbContext? db = sp.GetService<ExpenseTrackerDbContext>();
+            if (db is not null)
+            {
+                try
+                {
+                    bool ok = await db.Database.CanConnectAsync(ct).ConfigureAwait(false);
+                    database = ok ? "ok" : "unavailable";
+                    if (!ok)
+                    {
+                        status = "degraded";
+                    }
+                }
+                catch
+                {
+                    database = "error";
+                    status = "degraded";
+                }
+            }
+
+            return Results.Json(new { status, service = opt.HealthServiceName, database });
+        })
     .WithName("HealthCheck")
     .WithTags("System");
 
@@ -144,9 +143,10 @@ app.MapGet("/api/hello", () => Results.Json(new { message = apiEndpoints.HelloMe
 
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
-    app.MapAuthEndpoints();
+    app.MapAuthEndpoints(app.Environment);
     app.MapUsersEndpoints();
-    app.MapSyncBookEndpoints();
+    app.MapSyncBookEndpoints(app.Environment);
+    app.MapComplianceEndpoints();
     IOptions<DevDataOptions> devOpts = app.Services.GetRequiredService<IOptions<DevDataOptions>>();
     app.MapDevBookEndpoints(devOpts);
 }

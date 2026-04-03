@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json.Serialization;
 using ExpenseTracker.Api.Configuration;
+using ExpenseTracker.Api.Hosting;
 using ExpenseTracker.Api.Services;
 using ExpenseTracker.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -10,9 +11,14 @@ namespace ExpenseTracker.Api.Endpoints;
 
 public static class AuthEndpoints
 {
-    public static void MapAuthEndpoints(this WebApplication app)
+    public static void MapAuthEndpoints(this WebApplication app, IHostEnvironment environment)
     {
         RouteGroupBuilder g = app.MapGroup("/api/auth").WithTags("Auth");
+        if (!environment.IsEnvironment("Integration"))
+        {
+            _ = g.RequireRateLimiting(RateLimiterExtensions.AuthPolicy);
+        }
+
         _ = g.MapPost("/register", RegisterAsync).AllowAnonymous();
         _ = g.MapPost("/login", LoginAsync).AllowAnonymous();
         _ = g.MapPost("/logout", LogoutAsync).RequireAuthorization();

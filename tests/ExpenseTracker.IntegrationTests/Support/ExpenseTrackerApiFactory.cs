@@ -8,14 +8,17 @@ public sealed class ExpenseTrackerApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _connectionString;
     private readonly IReadOnlyDictionary<string, string?>? _configurationOverrides;
+    private readonly string? _environmentName;
 
     public ExpenseTrackerApiFactory(
         string connectionString,
-        IReadOnlyDictionary<string, string?>? configurationOverrides = null)
+        IReadOnlyDictionary<string, string?>? configurationOverrides = null,
+        string? environmentName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _connectionString = connectionString;
         _configurationOverrides = configurationOverrides;
+        _environmentName = environmentName;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -34,6 +37,7 @@ public sealed class ExpenseTrackerApiFactory : WebApplicationFactory<Program>
             ["Api:LogWhenDatabaseDisabled"] = "false",
             ["Logging:LogLevel:Default"] = "Warning",
             ["Logging:LogLevel:Microsoft.AspNetCore"] = "Warning",
+            ["Cors:AllowAnyOrigin"] = "true",
         };
 
         if (_configurationOverrides is not null)
@@ -44,7 +48,15 @@ public sealed class ExpenseTrackerApiFactory : WebApplicationFactory<Program>
             }
         }
 
-        _ = builder.UseEnvironment("Integration");
+        if (!string.IsNullOrEmpty(_environmentName))
+        {
+            _ = builder.UseEnvironment(_environmentName);
+        }
+        else
+        {
+            _ = builder.UseEnvironment("Integration");
+        }
+
         _ = builder.ConfigureAppConfiguration(
             (_, config) =>
             {
