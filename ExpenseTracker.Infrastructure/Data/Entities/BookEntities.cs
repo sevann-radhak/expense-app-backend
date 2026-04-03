@@ -1,8 +1,12 @@
+using ExpenseTracker.Infrastructure.Identity;
+
 namespace ExpenseTracker.Infrastructure.Data.Entities;
 
 public sealed class UserBookMetadataEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public int BookRevision { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
 }
@@ -10,6 +14,8 @@ public sealed class UserBookMetadataEntity
 public sealed class UserPreferencesEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string? Locale { get; set; }
     public string? DefaultCurrencyCode { get; set; }
     public string? LastPaymentInstrumentId { get; set; }
@@ -19,6 +25,8 @@ public sealed class UserPreferencesEntity
 public sealed class PaymentInstrumentEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string Label { get; set; } = null!;
     public string? BankName { get; set; }
@@ -39,6 +47,8 @@ public sealed class PaymentInstrumentEntity
 public sealed class CategoryEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
@@ -50,6 +60,8 @@ public sealed class CategoryEntity
 public sealed class SubcategoryEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string CategoryId { get; set; } = null!;
     public string Name { get; set; } = null!;
@@ -64,6 +76,8 @@ public sealed class SubcategoryEntity
 public sealed class IncomeCategoryEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
@@ -75,6 +89,8 @@ public sealed class IncomeCategoryEntity
 public sealed class IncomeSubcategoryEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string CategoryId { get; set; } = null!;
     public string Name { get; set; } = null!;
@@ -89,6 +105,8 @@ public sealed class IncomeSubcategoryEntity
 public sealed class ExpenseRecurringSeriesEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string AnchorOccurredOn { get; set; } = null!;
     public string RecurrenceJson { get; set; } = null!;
@@ -109,6 +127,8 @@ public sealed class ExpenseRecurringSeriesEntity
 public sealed class IncomeRecurringSeriesEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string AnchorReceivedOn { get; set; } = null!;
     public string RecurrenceJson { get; set; } = null!;
@@ -127,6 +147,8 @@ public sealed class IncomeRecurringSeriesEntity
 public sealed class InstallmentPlanEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public int PaymentCount { get; set; }
     public int IntervalMonths { get; set; } = 1;
@@ -145,6 +167,8 @@ public sealed class InstallmentPlanEntity
 public sealed class ExpenseEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string OccurredOn { get; set; } = null!;
     public string CategoryId { get; set; } = null!;
@@ -167,6 +191,8 @@ public sealed class ExpenseEntity
 public sealed class IncomeEntryEntity
 {
     public string UserId { get; set; } = null!;
+
+    public ApplicationUser? User { get; set; }
     public string Id { get; set; } = null!;
     public string ReceivedOn { get; set; } = null!;
     public string IncomeCategoryId { get; set; } = null!;

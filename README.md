@@ -39,6 +39,30 @@ curl http://localhost:5057/api/health
 
 **CORS** is permissive for **local development** only; restrict before any shared or production deployment.
 
+## Authentication (JWT + ASP.NET Identity)
+
+When `ConnectionStrings:DefaultConnection` is set, the API registers **users, roles, and JWT bearer** auth. Book tables use `UserId` (`nvarchar(450)`) as before, with **foreign keys to `users(Id)`** (`ON DELETE NO ACTION` / restrict) so every book row must reference a real account. Applying migrations fails if orphaned `UserId` values exist; fix data or create matching users first. Removing an Identity user while book rows still reference them will fail until those rows are deleted or reassigned (consider an explicit purge in application code before `UserManager.DeleteAsync`).
+
+**Configuration:** `Jwt` (issuer, audience, `SigningKey` ≥ 32 characters in non-Development), optional `InitialAdmin` (startup seed of the first SuperAdmin), optional `Setup:BootstrapToken` (header `X-Setup-Token` for `POST /api/auth/bootstrap-superadmin`). In **Development**, a dev-only signing key is used if `Jwt:SigningKey` is missing (see `Program.cs`).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/register` | Anonymous | Self-registration; assigns role `User`; returns JWT. |
+| POST | `/api/auth/login` | Anonymous | Email + password; returns JWT. |
+| POST | `/api/auth/logout` | Anonymous | No-op (204); JWT clients discard the token locally. |
+| POST | `/api/auth/bootstrap-superadmin` | `X-Setup-Token` | Creates first SuperAdmin when none exist. |
+| GET/PATCH | `/api/users/me` | Bearer | Current user profile. |
+| POST | `/api/users` | Admin, SuperAdmin | Create user (optional `roles`; non–SuperAdmin admins may only create `User`). |
+| GET | `/api/users` | Admin, SuperAdmin | Paged user list (`page`, `pageSize`). |
+| GET | `/api/users/{id}` | Bearer | Self or admin. |
+| PUT | `/api/users/{id}` | Admin, SuperAdmin | Update display name / lockout. |
+| DELETE | `/api/users/{id}` | Admin, SuperAdmin | Delete user (rules prevent privilege escalation). |
+| PUT | `/api/users/{id}/roles` | SuperAdmin | Replace role set. |
+
+**Roles:** `SuperAdmin`, `Admin`, `User`. Apply migrations after pulling (`dotnet ef database update` with the same connection string as the app).
+
+**User secrets (example):** `dotnet user-secrets set "Jwt:SigningKey" "your-32+-char-secret" --project ExpenseTracker.Api`
+
 ## Flutter client
 
 In the **expense-app** repo, point the app at this base URL (no trailing slash):
@@ -69,7 +93,7 @@ Optional header `X-Dev-Data-Secret` when `DevData:RequireSharedSecret` and `DevD
 
 - `ExpenseTracker.sln` — solution
 - `ExpenseTracker.Api/` — web host (Kestrel), Swagger, minimal APIs, **EF Core** startup (create database + migrate)
-- `ExpenseTracker.Infrastructure/` — **EF Core** `DbContext`, entities, migrations, taxonomy/demo seed services (Phase **5.b**)
+- `ExpenseTracker.Infrastructure/` — **EF Core** `DbContext`, entities, migrations under **`Data/Migrations`**, taxonomy/demo seed services (Phase **5.b**). New migrations: `dotnet ef migrations add <Name> --project ExpenseTracker.Infrastructure --startup-project ExpenseTracker.Api --output-dir Data/Migrations`. Identity storage uses tables **`users`**, **`roles`**, **`user_roles`**, **`user_claims`**, **`user_logins`**, **`user_tokens`**, **`role_claims`** (no `AspNet*` prefix).
 
 ## Local database (Phase 5.3+)
 

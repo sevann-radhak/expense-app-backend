@@ -1,11 +1,14 @@
 using ExpenseTracker.Infrastructure.Data.Entities;
+using ExpenseTracker.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ExpenseTracker.Infrastructure.Data;
 
 public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbContext> options)
-    : DbContext(options)
+    : IdentityDbContext<ApplicationUser, IdentityRole, string>(options)
 {
     public DbSet<UserBookMetadataEntity> UserBookMetadata => Set<UserBookMetadataEntity>();
     public DbSet<UserPreferencesEntity> UserPreferences => Set<UserPreferencesEntity>();
@@ -22,6 +25,16 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ApplicationUser>().ToTable("users");
+        modelBuilder.Entity<IdentityRole>().ToTable("roles");
+        modelBuilder.Entity<IdentityUserRole<string>>().ToTable("user_roles");
+        modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("user_claims");
+        modelBuilder.Entity<IdentityUserLogin<string>>().ToTable("user_logins");
+        modelBuilder.Entity<IdentityUserToken<string>>().ToTable("user_tokens");
+        modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable("role_claims");
+
         static void bookTable<T>(ModelBuilder mb, string name, Action<EntityTypeBuilder<T>>? configure = null)
             where T : class
         {
@@ -36,6 +49,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
             e.Property(x => x.UserId).HasMaxLength(450);
             e.Property(x => x.BookRevision).IsRequired();
             e.Property(x => x.UpdatedAtUtc).IsRequired();
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<UserPreferencesEntity>(modelBuilder, "user_preferences", e =>
@@ -51,6 +68,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.ClientSetNull);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<PaymentInstrumentEntity>(modelBuilder, "payment_instruments", e =>
@@ -67,6 +88,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
             e.Property(x => x.NominalAprPercent).HasPrecision(19, 6);
             e.Property(x => x.CreditLimit).HasPrecision(19, 4);
             e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<CategoryEntity>(modelBuilder, "categories", e =>
@@ -76,6 +101,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
             e.Property(x => x.Id).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(512).IsRequired();
             e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<SubcategoryEntity>(modelBuilder, "subcategories", e =>
@@ -92,6 +121,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.UserId, x.CategoryId });
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<IncomeCategoryEntity>(modelBuilder, "income_categories", e =>
@@ -101,6 +134,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
             e.Property(x => x.Id).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(512).IsRequired();
             e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<IncomeSubcategoryEntity>(modelBuilder, "income_subcategories", e =>
@@ -117,6 +154,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.UserId, x.CategoryId });
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<ExpenseRecurringSeriesEntity>(modelBuilder, "expense_recurring_series", e =>
@@ -146,6 +187,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.ClientSetNull);
             e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<IncomeRecurringSeriesEntity>(modelBuilder, "income_recurring_series", e =>
@@ -169,6 +214,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<InstallmentPlanEntity>(modelBuilder, "installment_plans", e =>
@@ -198,6 +247,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.ClientSetNull);
             e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<ExpenseEntity>(modelBuilder, "expenses", e =>
@@ -243,6 +296,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.ClientSetNull);
             e.HasIndex(x => new { x.UserId, x.OccurredOn });
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         bookTable<IncomeEntryEntity>(modelBuilder, "income_entries", e =>
@@ -276,6 +333,10 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
                 .HasPrincipalKey(x => new { x.UserId, x.Id })
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.UserId, x.ReceivedOn });
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -6,11 +6,73 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ExpenseTracker.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialBookSchema : Migration
+    public partial class InitialSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "roles",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_roles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "users",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedEmail = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    EmailConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SecurityStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumberConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    LockoutEnd = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "role_claims",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RoleId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_role_claims", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_role_claims_roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateTable(
                 name: "categories",
                 columns: table => new
@@ -26,6 +88,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_categories", x => new { x.UserId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_categories_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -43,6 +111,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_income_categories", x => new { x.UserId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_income_categories_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -69,6 +143,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_payment_instruments", x => new { x.UserId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_payment_instruments_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -82,6 +162,97 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_user_book_metadata", x => x.UserId);
+                    table.ForeignKey(
+                        name: "FK_user_book_metadata_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "user_claims",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_user_claims", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_user_claims_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "user_logins",
+                columns: table => new
+                {
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderKey = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderDisplayName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_user_logins", x => new { x.LoginProvider, x.ProviderKey });
+                    table.ForeignKey(
+                        name: "FK_user_logins_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "user_roles",
+                columns: table => new
+                {
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    RoleId = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_user_roles", x => new { x.UserId, x.RoleId });
+                    table.ForeignKey(
+                        name: "FK_user_roles_roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_user_roles_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "user_tokens",
+                columns: table => new
+                {
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Value = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_user_tokens", x => new { x.UserId, x.LoginProvider, x.Name });
+                    table.ForeignKey(
+                        name: "FK_user_tokens_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -108,6 +279,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         principalTable: "categories",
                         principalColumns: new[] { "UserId", "Id" },
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_subcategories_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -134,6 +311,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         principalTable: "income_categories",
                         principalColumns: new[] { "UserId", "Id" },
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_income_subcategories_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -153,8 +336,13 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         name: "FK_user_preferences_payment_instruments_UserId_LastPaymentInstrumentId",
                         columns: x => new { x.UserId, x.LastPaymentInstrumentId },
                         principalTable: "payment_instruments",
-                        principalColumns: new[] { "UserId", "Id" },
-                        onDelete: ReferentialAction.NoAction);
+                        principalColumns: new[] { "UserId", "Id" });
+                    table.ForeignKey(
+                        name: "FK_user_preferences_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -191,13 +379,18 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         name: "FK_expense_recurring_series_payment_instruments_UserId_PaymentInstrumentId",
                         columns: x => new { x.UserId, x.PaymentInstrumentId },
                         principalTable: "payment_instruments",
-                        principalColumns: new[] { "UserId", "Id" },
-                        onDelete: ReferentialAction.NoAction);
+                        principalColumns: new[] { "UserId", "Id" });
                     table.ForeignKey(
                         name: "FK_expense_recurring_series_subcategories_UserId_SubcategoryId",
                         columns: x => new { x.UserId, x.SubcategoryId },
                         principalTable: "subcategories",
                         principalColumns: new[] { "UserId", "Id" },
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_expense_recurring_series_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -233,13 +426,18 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         name: "FK_installment_plans_payment_instruments_UserId_PaymentInstrumentId",
                         columns: x => new { x.UserId, x.PaymentInstrumentId },
                         principalTable: "payment_instruments",
-                        principalColumns: new[] { "UserId", "Id" },
-                        onDelete: ReferentialAction.NoAction);
+                        principalColumns: new[] { "UserId", "Id" });
                     table.ForeignKey(
                         name: "FK_installment_plans_subcategories_UserId_SubcategoryId",
                         columns: x => new { x.UserId, x.SubcategoryId },
                         principalTable: "subcategories",
                         principalColumns: new[] { "UserId", "Id" },
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_installment_plans_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -276,6 +474,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         columns: x => new { x.UserId, x.IncomeSubcategoryId },
                         principalTable: "income_subcategories",
                         principalColumns: new[] { "UserId", "Id" },
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_income_recurring_series_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -321,19 +525,23 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         name: "FK_expenses_installment_plans_UserId_InstallmentPlanId",
                         columns: x => new { x.UserId, x.InstallmentPlanId },
                         principalTable: "installment_plans",
-                        principalColumns: new[] { "UserId", "Id" },
-                        onDelete: ReferentialAction.NoAction);
+                        principalColumns: new[] { "UserId", "Id" });
                     table.ForeignKey(
                         name: "FK_expenses_payment_instruments_UserId_PaymentInstrumentId",
                         columns: x => new { x.UserId, x.PaymentInstrumentId },
                         principalTable: "payment_instruments",
-                        principalColumns: new[] { "UserId", "Id" },
-                        onDelete: ReferentialAction.NoAction);
+                        principalColumns: new[] { "UserId", "Id" });
                     table.ForeignKey(
                         name: "FK_expenses_subcategories_UserId_SubcategoryId",
                         columns: x => new { x.UserId, x.SubcategoryId },
                         principalTable: "subcategories",
                         principalColumns: new[] { "UserId", "Id" },
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_expenses_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -376,6 +584,12 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                         columns: x => new { x.UserId, x.IncomeSubcategoryId },
                         principalTable: "income_subcategories",
                         principalColumns: new[] { "UserId", "Id" },
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_income_entries_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -505,14 +719,53 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_role_claims_RoleId",
+                table: "role_claims",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "RoleNameIndex",
+                table: "roles",
+                column: "NormalizedName",
+                unique: true,
+                filter: "[NormalizedName] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_subcategories_UserId_CategoryId",
                 table: "subcategories",
                 columns: new[] { "UserId", "CategoryId" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_user_claims_UserId",
+                table: "user_claims",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_user_logins_UserId",
+                table: "user_logins",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_user_preferences_UserId_LastPaymentInstrumentId",
                 table: "user_preferences",
                 columns: new[] { "UserId", "LastPaymentInstrumentId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_user_roles_RoleId",
+                table: "user_roles",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "EmailIndex",
+                table: "users",
+                column: "NormalizedEmail");
+
+            migrationBuilder.CreateIndex(
+                name: "UserNameIndex",
+                table: "users",
+                column: "NormalizedUserName",
+                unique: true,
+                filter: "[NormalizedUserName] IS NOT NULL");
         }
 
         /// <inheritdoc />
@@ -525,10 +778,25 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
                 name: "income_entries");
 
             migrationBuilder.DropTable(
+                name: "role_claims");
+
+            migrationBuilder.DropTable(
                 name: "user_book_metadata");
 
             migrationBuilder.DropTable(
+                name: "user_claims");
+
+            migrationBuilder.DropTable(
+                name: "user_logins");
+
+            migrationBuilder.DropTable(
                 name: "user_preferences");
+
+            migrationBuilder.DropTable(
+                name: "user_roles");
+
+            migrationBuilder.DropTable(
+                name: "user_tokens");
 
             migrationBuilder.DropTable(
                 name: "expense_recurring_series");
@@ -538,6 +806,9 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "income_recurring_series");
+
+            migrationBuilder.DropTable(
+                name: "roles");
 
             migrationBuilder.DropTable(
                 name: "payment_instruments");
@@ -553,6 +824,9 @@ namespace ExpenseTracker.Infrastructure.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "income_categories");
+
+            migrationBuilder.DropTable(
+                name: "users");
         }
     }
 }
