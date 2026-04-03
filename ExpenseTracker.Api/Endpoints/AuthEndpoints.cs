@@ -1,9 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json.Serialization;
 using ExpenseTracker.Api.Configuration;
 using ExpenseTracker.Api.Services;
 using ExpenseTracker.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using System.Text.Json.Serialization;
 
 namespace ExpenseTracker.Api.Endpoints;
 
@@ -14,7 +15,7 @@ public static class AuthEndpoints
         RouteGroupBuilder g = app.MapGroup("/api/auth").WithTags("Auth");
         _ = g.MapPost("/register", RegisterAsync).AllowAnonymous();
         _ = g.MapPost("/login", LoginAsync).AllowAnonymous();
-        _ = g.MapPost("/logout", LogoutAsync).AllowAnonymous();
+        _ = g.MapPost("/logout", LogoutAsync).RequireAuthorization();
         _ = g.MapPost("/bootstrap-superadmin", BootstrapSuperAdminAsync).AllowAnonymous();
     }
 
@@ -92,8 +93,17 @@ public static class AuthEndpoints
         return Results.Ok(new AuthResponseDto(user.Id, user.Email!, token, exp, roles.ToList()));
     }
 
-    private static IResult LogoutAsync()
+    private static IResult LogoutAsync(HttpContext http, IJwtBlocklist blocklist)
     {
+        string? jti = http.User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+        string? expClaim = http.User.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+        if (string.IsNullOrEmpty(jti) || string.IsNullOrEmpty(expClaim) || !long.TryParse(expClaim, out long expUnix))
+        {
+            return Results.Unauthorized();
+        }
+
+        DateTimeOffset expiresAt = DateTimeOffset.FromUnixTimeSeconds(expUnix);
+        blocklist.Revoke(jti, expiresAt);
         return Results.NoContent();
     }
 

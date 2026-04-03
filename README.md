@@ -66,7 +66,7 @@ When `ConnectionStrings:DefaultConnection` is set, the API registers **users, ro
 |--------|------|------|-------------|
 | POST | `/api/auth/register` | Anonymous | Self-registration; assigns role `User`; returns JWT. |
 | POST | `/api/auth/login` | Anonymous | Email + password; returns JWT. |
-| POST | `/api/auth/logout` | Anonymous | No-op (204); JWT clients discard the token locally. |
+| POST | `/api/auth/logout` | **Bearer** | Revokes the **current** access token by `jti` until it would have expired (in-memory blocklist per API instance). Returns `204`. `401` without a valid Bearer token. |
 | POST | `/api/auth/bootstrap-superadmin` | `X-Setup-Token` | Creates first SuperAdmin when none exist. |
 | GET/PATCH | `/api/users/me` | Bearer | Current user profile. |
 | POST | `/api/users` | Admin, SuperAdmin | Create user (optional `roles`; non–SuperAdmin admins may only create `User`). |
@@ -79,6 +79,8 @@ When `ConnectionStrings:DefaultConnection` is set, the API registers **users, ro
 **Roles:** `SuperAdmin`, `Admin`, `User`. Apply migrations after pulling (`dotnet ef database update` with the same connection string as the app).
 
 **User secrets (example):** `dotnet user-secrets set "Jwt:SigningKey" "your-32+-char-secret" --project ExpenseTracker.Api`
+
+**Logout / token revocation:** Revoked tokens are stored in **process memory** (`IMemoryCache`). Restarting the API clears the list; running **multiple instances** does not share revocations until you add a shared store (e.g. Redis or a database table).
 
 ## Flutter client
 

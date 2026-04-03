@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using ExpenseTracker.Api.Configuration;
 using ExpenseTracker.Api.Endpoints;
@@ -36,6 +37,8 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 
     JwtOptions jwt = JwtStartup.Resolve(builder.Configuration, builder.Environment);
     _ = builder.Services.AddSingleton(Options.Create(jwt));
+    _ = builder.Services.AddMemoryCache();
+    _ = builder.Services.AddSingleton<IJwtBlocklist, MemoryCacheJwtBlocklist>();
 
     _ = builder.Services.AddAuthentication(options =>
         {
@@ -55,6 +58,25 @@ if (!string.IsNullOrWhiteSpace(connectionString))
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
                 ClockSkew = TimeSpan.FromMinutes(jwt.ClockSkewMinutes),
                 RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+            };
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = context =>
+                {
+                    string? jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                    if (string.IsNullOrEmpty(jti))
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    IJwtBlocklist blocklist = context.HttpContext.RequestServices.GetRequiredService<IJwtBlocklist>();
+                    if (blocklist.IsRevoked(jti))
+                    {
+                        context.Fail("This token has been revoked.");
+                    }
+
+                    return Task.CompletedTask;
+                },
             };
         });
 
