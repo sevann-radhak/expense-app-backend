@@ -27,7 +27,12 @@ public sealed class ExpenseTrackerDbContext(DbContextOptions<ExpenseTrackerDbCon
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<ApplicationUser>().ToTable("users");
+        modelBuilder.Entity<ApplicationUser>(e =>
+        {
+            e.ToTable("users");
+            e.Property(u => u.SubscriptionTier).HasMaxLength(32).IsRequired();
+            e.Property(u => u.SubscriptionTierSource).HasMaxLength(32).IsRequired();
+        });
         modelBuilder.Entity<IdentityRole>().ToTable("roles");
         modelBuilder.Entity<IdentityUserRole<string>>().ToTable("user_roles");
         modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("user_claims");

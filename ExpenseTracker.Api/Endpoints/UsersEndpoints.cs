@@ -97,6 +97,25 @@ public static class UsersEndpoints
             return Results.Forbid();
         }
 
+        string tier = SubscriptionTierCodes.Basic;
+        string tierSource = SubscriptionTierSourceCodes.Default;
+        if (body.SubscriptionTier is not null)
+        {
+            if (!callerSuper)
+            {
+                return Results.Forbid();
+            }
+
+            string requested = body.SubscriptionTier.Trim();
+            if (!SubscriptionTierCodes.IsValid(requested))
+            {
+                return Results.BadRequest(new { error = $"Unknown subscription tier: {body.SubscriptionTier}" });
+            }
+
+            tier = requested;
+            tierSource = SubscriptionTierSourceCodes.Admin;
+        }
+
         ApplicationUser user = new()
         {
             UserName = email,
@@ -104,6 +123,8 @@ public static class UsersEndpoints
             EmailConfirmed = body.EmailConfirmed ?? false,
             DisplayName = string.IsNullOrWhiteSpace(body.DisplayName) ? null : body.DisplayName.Trim(),
             CreatedAtUtc = DateTime.UtcNow,
+            SubscriptionTier = tier,
+            SubscriptionTierSource = tierSource,
         };
 
         IdentityResult create = await userManager.CreateAsync(user, body.Password).ConfigureAwait(false);
@@ -204,6 +225,36 @@ public static class UsersEndpoints
             }
         }
 
+        if (body.SubscriptionTier is not null)
+        {
+            if (!callerSuper)
+            {
+                return Results.Forbid();
+            }
+
+            string requested = body.SubscriptionTier.Trim();
+            if (!SubscriptionTierCodes.IsValid(requested))
+            {
+                return Results.BadRequest(new { error = $"Unknown subscription tier: {body.SubscriptionTier}" });
+            }
+
+            target.SubscriptionTier = requested;
+            if (body.SubscriptionTierSource is not null)
+            {
+                string src = body.SubscriptionTierSource.Trim();
+                if (!SubscriptionTierSourceCodes.IsValid(src))
+                {
+                    return Results.BadRequest(new { error = $"Unknown subscription tier source: {body.SubscriptionTierSource}" });
+                }
+
+                target.SubscriptionTierSource = src;
+            }
+            else
+            {
+                target.SubscriptionTierSource = SubscriptionTierSourceCodes.Admin;
+            }
+        }
+
         IdentityResult r = await userManager.UpdateAsync(target).ConfigureAwait(false);
         return !r.Succeeded
             ? Results.BadRequest(new { errors = r.Errors.Select(e => e.Description).ToArray() })
@@ -292,7 +343,9 @@ public static class UsersEndpoints
             user.DisplayName,
             user.EmailConfirmed,
             user.LockoutEnd,
-            roles.ToList());
+            roles.ToList(),
+            user.SubscriptionTier,
+            user.SubscriptionTierSource);
     }
 
     internal sealed class CreateUserRequest
@@ -311,6 +364,9 @@ public static class UsersEndpoints
 
         [JsonPropertyName("roles")]
         public List<string>? Roles { get; set; }
+
+        [JsonPropertyName("subscriptionTier")]
+        public string? SubscriptionTier { get; set; }
     }
 
     internal sealed class PatchMeRequest
@@ -326,6 +382,12 @@ public static class UsersEndpoints
 
         [JsonPropertyName("lockoutEndUtc")]
         public DateTimeOffset? LockoutEndUtc { get; set; }
+
+        [JsonPropertyName("subscriptionTier")]
+        public string? SubscriptionTier { get; set; }
+
+        [JsonPropertyName("subscriptionTierSource")]
+        public string? SubscriptionTierSource { get; set; }
     }
 
     internal sealed class PutRolesRequest
@@ -340,7 +402,9 @@ public static class UsersEndpoints
         string? DisplayName,
         bool EmailConfirmed,
         DateTimeOffset? LockoutEnd,
-        IReadOnlyList<string> Roles);
+        IReadOnlyList<string> Roles,
+        string SubscriptionTier,
+        string SubscriptionTierSource);
 
     internal sealed record PagedUsersDto(int Page, int PageSize, int TotalCount, IReadOnlyList<UserListItemDto> Items);
 }

@@ -82,14 +82,16 @@ When `ConnectionStrings:DefaultConnection` is set, the API registers **users, ro
 | POST | `/api/auth/logout` | **Bearer** | Revokes the **current** access token by `jti` until it would have expired (in-memory blocklist per API instance). Returns `204`. `401` without a valid Bearer token. |
 | POST | `/api/auth/bootstrap-superadmin` | `X-Setup-Token` | Creates first SuperAdmin when none exist. |
 | GET/PATCH | `/api/users/me` | Bearer | Current user profile. |
-| POST | `/api/users` | Admin, SuperAdmin | Create user (optional `roles`; non–SuperAdmin admins may only create `User`). |
+| POST | `/api/users` | Admin, SuperAdmin | Create user (optional `roles`; non–SuperAdmin admins may only create `User`). Optional **`subscriptionTier`**: **SuperAdmin** only (**403** otherwise); sets source **admin** when set. |
 | GET | `/api/users` | Admin, SuperAdmin | Paged user list (`page`, `pageSize`). |
 | GET | `/api/users/{id}` | Bearer | Self or admin. |
-| PUT | `/api/users/{id}` | Admin, SuperAdmin | Update display name / lockout. |
+| PUT | `/api/users/{id}` | Admin, SuperAdmin | Update display name / lockout. Optional **`subscriptionTier`** / **`subscriptionTierSource`**: only **SuperAdmin** may change tier; invalid codes → **400** (see product doc `05-subscription-entitlements-strategy.md` in **expense-app**). |
 | DELETE | `/api/users/{id}` | Admin, SuperAdmin | Delete user (rules prevent privilege escalation). |
 | PUT | `/api/users/{id}/roles` | SuperAdmin | Replace role set. |
 
 **Roles:** `SuperAdmin`, `Admin`, `User`. Apply migrations after pulling (`dotnet ef database update` with the same connection string as the app).
+
+**JWT claims:** Access tokens include **`subscription_tier`** (`basic` | `pro` | `pro_max`) from the user row (Phase **5.12**).
 
 **User secrets (example):** `dotnet user-secrets set "Jwt:SigningKey" "your-32+-char-secret" --project ExpenseTracker.Api`
 

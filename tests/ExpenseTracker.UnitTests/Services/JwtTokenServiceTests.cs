@@ -4,6 +4,7 @@ using ExpenseTracker.Infrastructure.Identity;
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using static ExpenseTracker.Api.Configuration.JwtCustomClaimTypes;
 
 namespace ExpenseTracker.UnitTests.Services;
 
@@ -26,6 +27,7 @@ public sealed class JwtTokenServiceTests
             Id = "user-1",
             Email = "a@b.com",
             UserName = "a@b.com",
+            SubscriptionTier = SubscriptionTierCodes.Pro,
         };
 
         (string token, DateTimeOffset exp) = service.CreateAccessToken(user, ["User", "Admin"]);
@@ -36,6 +38,7 @@ public sealed class JwtTokenServiceTests
         _ = jwt.Audiences.Should().Contain("TestAudience");
         _ = jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).Should().BeEquivalentTo(["User", "Admin"]);
         _ = jwt.Subject.Should().Be("user-1");
+        _ = jwt.Claims.Single(c => c.Type == SubscriptionTier).Value.Should().Be(SubscriptionTierCodes.Pro);
     }
 
     [Fact]

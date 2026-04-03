@@ -1,4 +1,5 @@
 using ExpenseTracker.Api.Configuration;
+using static ExpenseTracker.Api.Configuration.JwtCustomClaimTypes;
 using ExpenseTracker.Infrastructure.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -38,6 +39,8 @@ public sealed class JwtTokenService(IOptions<JwtOptions> optionsAccessor)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
+
+        claims.Add(new Claim(SubscriptionTier, user.SubscriptionTier));
 
         JwtSecurityToken token = new(
             issuer: _options.Issuer,

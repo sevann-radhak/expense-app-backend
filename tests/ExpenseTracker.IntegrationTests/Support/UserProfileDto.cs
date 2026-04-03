@@ -15,4 +15,10 @@ internal sealed class UserProfileDto
 
     [JsonPropertyName("roles")]
     public List<string> Roles { get; set; } = [];
+
+    [JsonPropertyName("subscriptionTier")]
+    public string SubscriptionTier { get; set; } = string.Empty;
+
+    [JsonPropertyName("subscriptionTierSource")]
+    public string SubscriptionTierSource { get; set; } = string.Empty;
 }
