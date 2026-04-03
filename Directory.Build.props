@@ -5,4 +5,8 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('Tests'))">
+    <CollectCoverage Condition="'$(CollectCoverage)' == ''">false</CollectCoverage>
+  </PropertyGroup>
 </Project>

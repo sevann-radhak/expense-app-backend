@@ -12,7 +12,8 @@ This document defines how we test **expense-app-backend** and how new work shoul
 | Isolation (unit) | **Moq** |
 | HTTP + host | **Microsoft.AspNetCore.Mvc.Testing** (`WebApplicationFactory<Program>`) |
 | Real SQL Server in tests | **Testcontainers.MsSql** |
-| DB reset between tests | **Respawn** (truncate + reseed identity; ignores migrations history and seeded roles) |
+| DB reset between tests | **Respawn** + post-step (see below) |
+| Coverage gate (CI) | **coverlet.msbuild** (merge unit + integration, line threshold) |
 
 **Out of scope for the current suite (add when needed):** Pact.NET (consumer contracts), SpecFlow/Gherkin, k6/NBomber load tests, BenchmarkDotNet (unless profiling a hot path).
 
@@ -20,8 +21,8 @@ This document defines how we test **expense-app-backend** and how new work shoul
 
 | Project | Purpose |
 |---------|---------|
-| `tests/ExpenseTracker.UnitTests` | Fast tests: services, helpers, JWT options parsing, blocklist—**no** SQL, **no** full host. |
-| `tests/ExpenseTracker.IntegrationTests` | SQL Server container + API factory: HTTP endpoints, Identity, DB persistence. |
+| `tests/ExpenseTracker.UnitTests` | Fast tests: JWT, blocklist, `DevBookDataService.ValidateUserId`, `DevBookRequestValidation`—**no** SQL, **no** full host. |
+| `tests/ExpenseTracker.IntegrationTests` | SQL Server container + API factory: health/auth, **admin users** (`/api/users`, bootstrap), **DevBook** (`/api/dev/books/*`), Identity + DB checks. |
 
 Future optional projects (only if the product needs them): `ExpenseTracker.ContractTests`, `ExpenseTracker.FunctionalTests`.
 
@@ -43,13 +44,15 @@ Use xUnit `[Trait("Category", "...")]` so CI and local runs can filter:
 
 ## Integration fixture
 
-- **`IntegrationHostFixture`** (`tests/ExpenseTracker.IntegrationTests/Fixtures/`): starts one **MSSQL** Testcontainer per test collection, builds **`ExpenseTrackerApiFactory`**, applies migrations on first client creation (same as production startup), configures **Respawn** with `TablesToIgnore`: `__EFMigrationsHistory`, `roles`, `role_claims` (seeded roles survive resets; user data is wiped).
+- **`IntegrationHostFixture`** (`tests/ExpenseTracker.IntegrationTests/Fixtures/`): starts one **MSSQL** Testcontainer per test collection, builds **`ExpenseTrackerApiFactory`**, applies migrations on first client creation (same as production startup), configures **Respawn** with `TablesToIgnore`: `__EFMigrationsHistory`, `roles`, `role_claims` (seeded roles survive resets).
+- After **Respawn**, the fixture **removes all Identity users** so bootstrap / SuperAdmin tests start from a known state: for each user id, **`DevBookDataService.ResetUserBookAsync`** (clears FKs from book tables), then **`UserManager.DeleteAsync`**. Without the book reset, deletes can fail on FKs if Respawn ordering leaves rows pointing at `users`.
 - **`[Collection("Integration")]`** + **`DisableParallelization = true`**: one DB per run; avoids cross-test interference.
 - Each test should call **`await host.ResetDatabaseAsync()`** at the start unless a future scenario explicitly needs accumulated state.
 
 ## Configuration
 
-- Integration tests use environment **`Integration`** and in-memory configuration from **`ExpenseTrackerApiFactory`** (connection string from the container, long JWT signing key, `InitialAdmin:Enabled=false`, dev endpoints enabled where tests need them).
+- Integration tests use environment **`Integration`** and in-memory configuration from **`ExpenseTrackerApiFactory`** (connection string from the container, long JWT signing key, `InitialAdmin:Enabled=false`, **`Setup:BootstrapToken`** set to the value in **`IntegrationTestConstants`** for bootstrap tests, dev endpoints on, `DevData:RequireSharedSecret=false` by default).
+- **`ExpenseTrackerApiFactory`** accepts optional **`configurationOverrides`** (e.g. `DevData:RequireSharedSecret` + `DevData:SharedSecret`) for scenarios like DevBook shared-secret checks.
 - Do **not** commit secrets; tests never rely on `appsettings.local.json`.
 
 ## Local commands
@@ -67,13 +70,32 @@ dotnet test tests/ExpenseTracker.IntegrationTests --filter "Category=Integration
 dotnet test ExpenseTracker.sln
 ```
 
+### Coverage (optional local / same as CI)
+
+Use an **absolute** `CoverletOutput` path so merge finds the first run’s file (coverlet resolves paths relative to the test project directory otherwise).
+
+**PowerShell** (repository root):
+
+```powershell
+New-Item -ItemType Directory -Force -Path coverage | Out-Null
+$cov = Join-Path (Get-Location) "coverage/coverage.json"
+dotnet test tests/ExpenseTracker.UnitTests/ExpenseTracker.UnitTests.csproj -c Release --filter "Category=Unit" `
+  /p:CollectCoverage=true /p:CoverletOutput="$cov" /p:CoverletOutputFormat=json /p:ExcludeByFile="**/Migrations/**"
+dotnet test tests/ExpenseTracker.IntegrationTests/ExpenseTracker.IntegrationTests.csproj -c Release --filter "Category=Integration" `
+  /p:CollectCoverage=true /p:MergeWith="$cov" /p:CoverletOutput="$cov" /p:CoverletOutputFormat=json `
+  /p:ThresholdType=line /p:Threshold=82 /p:ExcludeByFile="**/Migrations/**"
+```
+
+CI runs the same sequence with **`${{ github.workspace }}/coverage/coverage.json`**. Migrations are excluded from the coverage denominator via **`ExcludeByFile`**. The current gate is **82%** merged **line** coverage (Api + Infrastructure).
+
 ## CI
 
-See **`.github/workflows/tests.yml`**: unit job without Docker; integration job with Docker and Testcontainers.
+See **`.github/workflows/tests.yml`**: single job (Docker on the runner), unit tests then integration tests, merged coverage with **line threshold 82%**.
 
 ## Definition of done for new features
 
 1. **Unit tests** for new pure logic (validators, services, token helpers, mappers).
 2. **Integration tests** for new HTTP routes (status codes, JSON shape, auth rules) and for non-trivial EF queries or transactions.
 3. Traits and naming follow this document.
-4. If a change alters **Respawn** assumptions (new tables that must survive reset, or custom schemas), update **`IntegrationHostFixture`** and this doc.
+4. If a change alters **Respawn** or **post-reset** assumptions (new tables that must survive reset, or custom schemas), update **`IntegrationHostFixture`** and this doc.
+5. If CI coverage falls below the threshold, add tests or raise the threshold only with team agreement.

@@ -1,5 +1,10 @@
+using ExpenseTracker.Infrastructure.Identity;
+using ExpenseTracker.Infrastructure.Services;
 using ExpenseTracker.IntegrationTests.Support;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Respawn;
 using Respawn.Graph;
 using System.Data.Common;
@@ -54,6 +59,28 @@ public sealed class IntegrationHostFixture : IAsyncLifetime
         await using DbConnection conn = new SqlConnection(ConnectionString);
         await conn.OpenAsync().ConfigureAwait(false);
         await _respawner.ResetAsync(conn).ConfigureAwait(false);
+        await ClearAllApplicationUsersAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Removes Identity users after Respawn. Book rows may survive Respawn in some FK orders; clear book data per user first.
+    /// </summary>
+    private async Task ClearAllApplicationUsersAsync()
+    {
+        using IServiceScope scope = Factory.Services.CreateScope();
+        UserManager<ApplicationUser> userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        DevBookDataService devBook = scope.ServiceProvider.GetRequiredService<DevBookDataService>();
+        List<string> userIds = await userManager.Users.Select(u => u.Id).ToListAsync().ConfigureAwait(false);
+        foreach (string id in userIds)
+        {
+            await devBook.ResetUserBookAsync(id).ConfigureAwait(false);
+        }
+
+        List<ApplicationUser> users = await userManager.Users.AsTracking().ToListAsync().ConfigureAwait(false);
+        foreach (ApplicationUser u in users)
+        {
+            _ = await userManager.DeleteAsync(u).ConfigureAwait(false);
+        }
     }
 
     public async Task DisposeAsync()

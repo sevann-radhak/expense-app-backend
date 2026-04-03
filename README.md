@@ -27,6 +27,8 @@ dotnet test tests/ExpenseTracker.IntegrationTests --filter "Category=Integration
 
 Integration tests need **Docker** (Testcontainers starts SQL Server). Run `dotnet test ExpenseTracker.sln` for everything.
 
+CI merges **coverlet** results from unit + integration runs and enforces a **minimum line coverage** (see **`docs/TESTING.md`**).
+
 ### Configuration (secrets)
 
 Loaded in order: `appsettings.json`, `appsettings.{Environment}.json`, optional **`ExpenseTracker.Api/appsettings.local.json`** (gitignored), ASP.NET Core **user secrets** (Development), then **environment variables** (nested keys use `__`, e.g. `ConnectionStrings__DefaultConnection`, `Jwt__SigningKey`, `DevData__ExposeEndpoints`, `DevData__SharedSecret`).

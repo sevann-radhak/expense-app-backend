@@ -19,6 +19,7 @@ Whenever you add or change **API endpoints**, **EF models/migrations**, **auth**
 5. Prefer **`MethodName_Scenario_ExpectedBehavior`** and FluentAssertions **Arrange / Act / Assert** layout.
 6. Do **not** add sleeps for timing; rely on async APIs and Testcontainers health.
 7. If you add tables that must **not** be truncated on reset, update **`IntegrationHostFixture`** Respawn **`TablesToIgnore`** and **`docs/TESTING.md`**.
+8. CI enforces **merged line coverage** (unit + integration); if the gate fails, add tests or discuss raising the threshold in **`docs/TESTING.md`** / workflow.
 
 ## PR expectation
 

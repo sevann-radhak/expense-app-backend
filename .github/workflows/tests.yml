@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  unit:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,21 +20,26 @@ jobs:
       - name: Restore
         run: dotnet restore ExpenseTracker.sln
 
-      - name: Unit tests
-        run: dotnet test tests/ExpenseTracker.UnitTests/ExpenseTracker.UnitTests.csproj -c Release --no-restore --filter "Category=Unit" --verbosity normal
+      - name: Prepare coverage output directory
+        run: mkdir -p "${{ github.workspace }}/coverage"
 
-  integration:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Unit tests (coverage, part 1)
+        run: >
+          dotnet test tests/ExpenseTracker.UnitTests/ExpenseTracker.UnitTests.csproj -c Release --no-restore
+          --filter "Category=Unit"
+          /p:CollectCoverage=true
+          /p:CoverletOutput=${{ github.workspace }}/coverage/coverage.json
+          /p:CoverletOutputFormat=json
+          /p:ExcludeByFile="**/Migrations/**"
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Restore
-        run: dotnet restore ExpenseTracker.sln
-
-      - name: Integration tests (Testcontainers)
-        run: dotnet test tests/ExpenseTracker.IntegrationTests/ExpenseTracker.IntegrationTests.csproj -c Release --no-restore --filter "Category=Integration" --verbosity normal
+      - name: Integration tests (coverage merge + line threshold)
+        run: >
+          dotnet test tests/ExpenseTracker.IntegrationTests/ExpenseTracker.IntegrationTests.csproj -c Release --no-restore
+          --filter "Category=Integration"
+          /p:CollectCoverage=true
+          /p:MergeWith=${{ github.workspace }}/coverage/coverage.json
+          /p:CoverletOutput=${{ github.workspace }}/coverage/coverage.json
+          /p:CoverletOutputFormat=json
+          /p:ThresholdType=line
+          /p:Threshold=82
+          /p:ExcludeByFile="**/Migrations/**"

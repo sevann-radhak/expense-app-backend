@@ -21,4 +21,8 @@
     <ProjectReference Include="..\ExpenseTracker.Infrastructure\ExpenseTracker.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ExpenseTracker.UnitTests" />
+  </ItemGroup>
+
 </Project>
