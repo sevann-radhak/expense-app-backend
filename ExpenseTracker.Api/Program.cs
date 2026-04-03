@@ -15,6 +15,8 @@ using Microsoft.IdentityModel.Tokens;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.AddAppSettingsLocal();
 
+_ = builder.Services.AddProblemDetails();
+
 builder.Services.Configure<OpenApiOptions>(builder.Configuration.GetSection(OpenApiOptions.SectionName));
 builder.Services.Configure<ApiEndpointsOptions>(builder.Configuration.GetSection(ApiEndpointsOptions.SectionName));
 builder.Services.Configure<AppCorsOptions>(builder.Configuration.GetSection(AppCorsOptions.SectionName));
@@ -144,6 +146,7 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     app.MapAuthEndpoints();
     app.MapUsersEndpoints();
+    app.MapSyncBookEndpoints();
     IOptions<DevDataOptions> devOpts = app.Services.GetRequiredService<IOptions<DevDataOptions>>();
     app.MapDevBookEndpoints(devOpts);
 }

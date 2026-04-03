@@ -22,7 +22,7 @@ This document defines how we test **expense-app-backend** and how new work shoul
 | Project | Purpose |
 |---------|---------|
 | `tests/ExpenseTracker.UnitTests` | Fast tests: JWT, blocklist, `DevBookDataService.ValidateUserId`, `DevBookRequestValidation`—**no** SQL, **no** full host. |
-| `tests/ExpenseTracker.IntegrationTests` | SQL Server container + API factory: health/auth, **admin users** (`/api/users`, bootstrap), **DevBook** (`/api/dev/books/*`), Identity + DB checks. |
+| `tests/ExpenseTracker.IntegrationTests` | SQL Server container + API factory: health/auth, **admin users** (`/api/users`, bootstrap), **book sync** (`GET`/`PUT` `/api/sync/book`), **DevBook** (`/api/dev/books/*`), Identity + DB checks. |
 
 Future optional projects (only if the product needs them): `ExpenseTracker.ContractTests`, `ExpenseTracker.FunctionalTests`.
 

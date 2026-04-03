@@ -93,6 +93,17 @@ When `ConnectionStrings:DefaultConnection` is set, the API registers **users, ro
 
 **JWT claims:** Access tokens include **`subscription_tier`** (`basic` | `pro` | `pro_max`) from the user row (Phase **5.12**).
 
+## Book sync (Phase **5.4**)
+
+Full **snapshot** download/upload for the authenticated user (JWT **`sub`** claim in the token = book **`user_id`**; ASP.NET maps it to **`ClaimTypes.NameIdentifier`** for handlers). JSON shape matches the Flutter book backup (**`schemaVersion` `9`**, camelCase keys such as `categories`, `expenseRecurringSeries`, `recurrence` objects for recurring series). Normative product doc: sibling repo **expense-app**, file **`docs/05-sync-spec.md`**.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/sync/book` | Bearer | Returns **`bookRevision`** plus snapshot fields (`schemaVersion`, `exportedAt`, arrays, optional **`userPreferences`**). Empty book → **`bookRevision` `0`**. |
+| PUT | `/api/sync/book` | Bearer | Body: full snapshot + **`expectedBookRevision`**. Replaces the entire book when the revision matches; returns **`{ "bookRevision": <new> }`**. **409** + Problem Details (`code`: `book_revision_conflict`, **`currentBookRevision`**) if stale. **400** if validation fails (`code`: `book_snapshot_invalid`). |
+
+**Concurrency:** Serializable transaction + revision check; **`partialPayments`** must be an empty array until the feature exists.
+
 **User secrets (example):** `dotnet user-secrets set "Jwt:SigningKey" "your-32+-char-secret" --project ExpenseTracker.Api`
 
 **Logout / token revocation:** Revoked tokens are stored in **process memory** (`IMemoryCache`). Restarting the API clears the list; running **multiple instances** does not share revocations until you add a shared store (e.g. Redis or a database table).

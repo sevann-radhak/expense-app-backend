@@ -17,6 +17,7 @@ public static class DependencyInjection
                 connectionString,
                 sql => sql.MigrationsAssembly(typeof(ExpenseTrackerDbContext).Assembly.FullName)));
         _ = services.AddScoped<DevBookDataService>();
+        _ = services.AddScoped<BookSyncService>();
         return services;
     }
 }
