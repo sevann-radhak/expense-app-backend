@@ -74,8 +74,10 @@ public sealed class DevBookApiTests(IntegrationHostFixture host)
 
         using IServiceScope scope = host.Factory.Services.CreateScope();
         ExpenseTrackerDbContext db = scope.ServiceProvider.GetRequiredService<ExpenseTrackerDbContext>();
-        _ = (await db.Expenses.CountAsync(e => e.UserId == userId).ConfigureAwait(false)).Should().BeGreaterThan(0);
-        _ = (await db.IncomeEntries.CountAsync(e => e.UserId == userId).ConfigureAwait(false)).Should().BeGreaterThan(0);
+        int expenseCount = await db.Expenses.CountAsync(e => e.UserId == userId).ConfigureAwait(false);
+        int incomeCount = await db.IncomeEntries.CountAsync(e => e.UserId == userId).ConfigureAwait(false);
+        _ = expenseCount.Should().BeGreaterThan(100);
+        _ = incomeCount.Should().BeGreaterThan(20);
     }
 
     [Fact]

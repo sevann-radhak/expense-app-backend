@@ -77,97 +77,13 @@ public sealed class DevBookDataService(ExpenseTrackerDbContext db)
         await SeedTaxonomyAsync(userId, cancellationToken).ConfigureAwait(false);
 
         DateTime utc = DateTime.UtcNow;
-        _ = db.PaymentInstruments.Add(
-            new PaymentInstrumentEntity
-            {
-                UserId = userId,
-                Id = "pi_demo_main",
-                Label = "Demo Visa",
-                BankName = "Demo Bank",
-                IsActive = true,
-                IsDefault = true,
-                FeeDescription = "",
-                UpdatedAtUtc = utc,
-            });
-
-        db.Expenses.AddRange(
-            new ExpenseEntity
-            {
-                UserId = userId,
-                Id = "exp_demo_rent_jan",
-                OccurredOn = "2026-01-05",
-                CategoryId = "cat_fixed_expenses",
-                SubcategoryId = "cat_fixed_expenses_rent",
-                AmountOriginal = 1200m,
-                CurrencyCode = "USD",
-                ManualFxRateToUsd = 1m,
-                AmountUsd = 1200m,
-                PaidWithCreditCard = false,
-                Description = "Demo rent",
-                UpdatedAtUtc = utc,
-            },
-            new ExpenseEntity
-            {
-                UserId = userId,
-                Id = "exp_demo_fuel_feb",
-                OccurredOn = "2026-02-12",
-                CategoryId = "cat_transport",
-                SubcategoryId = "cat_transport_fuel",
-                AmountOriginal = 85.5m,
-                CurrencyCode = "USD",
-                ManualFxRateToUsd = 1m,
-                AmountUsd = 85.5m,
-                PaidWithCreditCard = true,
-                PaymentInstrumentId = "pi_demo_main",
-                Description = "Demo fuel",
-                UpdatedAtUtc = utc,
-            },
-            new ExpenseEntity
-            {
-                UserId = userId,
-                Id = "exp_demo_lunch_mar",
-                OccurredOn = "2026-03-18",
-                CategoryId = "cat_leisure",
-                SubcategoryId = "cat_leisure_dining",
-                AmountOriginal = 24m,
-                CurrencyCode = "USD",
-                ManualFxRateToUsd = 1m,
-                AmountUsd = 24m,
-                PaidWithCreditCard = true,
-                PaymentInstrumentId = "pi_demo_main",
-                Description = "Demo lunch",
-                UpdatedAtUtc = utc,
-            });
-
-        db.IncomeEntries.AddRange(
-            new IncomeEntryEntity
-            {
-                UserId = userId,
-                Id = "inc_demo_salary_jan",
-                ReceivedOn = "2026-01-01",
-                IncomeCategoryId = "inc_cat_employment",
-                IncomeSubcategoryId = "inc_sub_emp_salary",
-                AmountOriginal = 5000m,
-                CurrencyCode = "USD",
-                ManualFxRateToUsd = 1m,
-                AmountUsd = 5000m,
-                Description = "Demo salary",
-                UpdatedAtUtc = utc,
-            },
-            new IncomeEntryEntity
-            {
-                UserId = userId,
-                Id = "inc_demo_bonus_feb",
-                ReceivedOn = "2026-02-15",
-                IncomeCategoryId = "inc_cat_employment",
-                IncomeSubcategoryId = "inc_sub_emp_bonus",
-                AmountOriginal = 800m,
-                CurrencyCode = "USD",
-                ManualFxRateToUsd = 1m,
-                AmountUsd = 800m,
-                Description = "Demo bonus",
-                UpdatedAtUtc = utc,
-            });
+        var paymentInstruments = new List<PaymentInstrumentEntity>();
+        var expenses = new List<ExpenseEntity>();
+        var incomeEntries = new List<IncomeEntryEntity>();
+        DevDemoScenarioGenerator.AppendDemoRows(userId, utc, paymentInstruments, expenses, incomeEntries);
+        db.PaymentInstruments.AddRange(paymentInstruments);
+        db.Expenses.AddRange(expenses);
+        db.IncomeEntries.AddRange(incomeEntries);
 
         _ = await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
