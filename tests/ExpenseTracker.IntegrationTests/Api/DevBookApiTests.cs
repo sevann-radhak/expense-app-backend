@@ -28,6 +28,21 @@ public sealed class DevBookApiTests(IntegrationHostFixture host)
     }
 
     [Fact]
+    public async Task SeedTaxonomy_UnknownUserId_ReturnsNotFound()
+    {
+        await host.ResetDatabaseAsync().ConfigureAwait(false);
+        HttpClient client = host.Factory.CreateClient();
+
+        HttpResponseMessage res = await client
+            .PostAsJsonAsync(
+                new Uri("/api/dev/books/seed-taxonomy", UriKind.Relative),
+                new { userId = "00000000-0000-0000-0000-000000000001" })
+            .ConfigureAwait(false);
+
+        _ = res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task SeedTaxonomy_Twice_SecondReturnsConflict()
     {
         await host.ResetDatabaseAsync().ConfigureAwait(false);

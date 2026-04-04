@@ -45,6 +45,12 @@ public sealed class DevBookDataService(ExpenseTrackerDbContext db)
     public async Task SeedTaxonomyAsync(string userId, CancellationToken cancellationToken = default)
     {
         ValidateUserId(userId);
+        bool userExists = await db.Users.AnyAsync(u => u.Id == userId, cancellationToken).ConfigureAwait(false);
+        if (!userExists)
+        {
+            throw new DevBookUserNotFoundException(userId);
+        }
+
         DateTime utc = DateTime.UtcNow;
         bool hasCat = await db.Categories.AnyAsync(c => c.UserId == userId, cancellationToken).ConfigureAwait(false);
         if (hasCat)

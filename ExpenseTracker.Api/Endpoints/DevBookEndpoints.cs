@@ -44,6 +44,10 @@ public static class DevBookEndpoints
                     {
                         await svc.SeedTaxonomyAsync(userId, ct).ConfigureAwait(false);
                     }
+                    catch (DevBookUserNotFoundException ex)
+                    {
+                        return Results.NotFound(new { error = ex.Message });
+                    }
                     catch (InvalidOperationException ex)
                     {
                         return Results.Conflict(new { error = ex.Message });
@@ -67,7 +71,19 @@ public static class DevBookEndpoints
                         return err!;
                     }
 
-                    await svc.SeedDemoAsync(userId, ct).ConfigureAwait(false);
+                    try
+                    {
+                        await svc.SeedDemoAsync(userId, ct).ConfigureAwait(false);
+                    }
+                    catch (DevBookUserNotFoundException ex)
+                    {
+                        return Results.NotFound(new { error = ex.Message });
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return Results.Conflict(new { error = ex.Message });
+                    }
+
                     return Results.Ok(new { status = "ok", message = "Demo book seeded (taxonomy + sample rows)." });
                 })
             .WithSummary("Reset user, then taxonomy + demo payment instrument, expenses, and income (temporary dev helper).");
